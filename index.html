@@ -1,1 +1,210 @@
-<h1>Hola </h1>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Plataforma de Control de Llegada de Exámenes - OS10 Coquimbo">
+  <title>Registro de Llegada - OS10 Coquimbo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- FIXED NAVBAR -->
+  <header class="header">
+    <div class="header-container">
+      <div class="logo-group">
+        <!-- Official OS10 WebP Logo -->
+        <img src="logo-os10.webp" alt="Logo OS10 Coquimbo" class="official-logo">
+        <div class="logo-text">
+          <h1>OS10 Coquimbo</h1>
+          <p>Carabineros de Chile</p>
+        </div>
+      </div>
+      
+      <!-- PUBLIC NAV TABS -->
+      <nav class="nav-tabs">
+        <button class="tab-btn active" data-tab="registro">
+          <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M16 11h6"/></svg>
+          <span>Ingreso</span>
+        </button>
+        <button class="tab-btn" data-tab="cola">
+          <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          <span>Fila de Espera</span>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="main-content">
+    
+    <!-- SECTION 1: GUARD REGISTRATION -->
+    <section id="tab-registro" class="tab-content active">
+      <div class="card card-hero">
+        <div class="card-header text-center">
+          <span class="badge badge-gold">Módulo de Auto-Ingreso</span>
+          <h2>Registro de Llegada</h2>
+          <p>Ingrese sus datos para tomar su lugar en la fila del examen OS10.</p>
+        </div>
+        
+        <form id="registro-form" autocomplete="off" novalidate>
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="rut">RUT (Cédula de Identidad)</label>
+              <input type="text" id="rut" placeholder="12.345.678-K" required>
+              <span class="error-msg" id="rut-error">El RUT ingresado no es válido.</span>
+              <span class="success-msg" id="rut-success">RUT Válido.</span>
+            </div>
+            
+            <div class="form-group">
+              <label for="nombres">Nombres</label>
+              <input type="text" id="nombres" placeholder="Ej: Juan Andrés" required>
+            </div>
+            
+            <div class="form-group">
+              <label for="apellidos">Apellidos</label>
+              <input type="text" id="apellidos" placeholder="Ej: Pérez González" required>
+            </div>
+            
+            <div class="form-group">
+              <label for="empresa">Empresa de Seguridad / OTEC (Opcional)</label>
+              <input type="text" id="empresa" placeholder="Ej: Seguridad Coquimbo Ltda.">
+            </div>
+          </div>
+          
+          <button type="submit" class="btn btn-primary btn-block">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon"><path d="M12 5v14M5 12h14"/></svg>
+            Ingresar a la Fila
+          </button>
+        </form>
+      </div>
+
+      <!-- SUCCESS OVERLAY MODAL -->
+      <div id="success-overlay" class="overlay hidden">
+        <div class="card card-success animate-pop">
+          <div class="success-icon-wrap">
+            <svg class="success-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+          </div>
+          <h3>¡Ingreso Exitoso!</h3>
+          <p>Ha sido registrado en la base de datos de llegada.</p>
+          <div class="ticket">
+            <div class="ticket-number" id="ticket-number">#000</div>
+            <div class="ticket-details">
+              <p class="ticket-name" id="ticket-name">Juan Pérez</p>
+              <p class="ticket-time" id="ticket-time">12:30:15</p>
+            </div>
+          </div>
+          <p class="ticket-hint">Por favor, espere en la sala. Será llamado a uno de los 4 computadores.</p>
+          <button id="close-success-btn" class="btn btn-secondary">Entendido</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 2: PUBLIC QUEUE -->
+    <section id="tab-cola" class="tab-content">
+      <!-- 4 EXAM COMPUTERS STATE -->
+      <div class="computers-grid">
+        <!-- PC 1 -->
+        <div class="pc-card" id="pc-1">
+          <div class="pc-header">
+            <span class="pc-title">Computador 1</span>
+            <span class="pc-status badge">Disponible</span>
+          </div>
+          <div class="pc-body">
+            <svg class="pc-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+            <div class="pc-user">Sin asignar</div>
+          </div>
+        </div>
+        <!-- PC 2 -->
+        <div class="pc-card" id="pc-2">
+          <div class="pc-header">
+            <span class="pc-title">Computador 2</span>
+            <span class="pc-status badge">Disponible</span>
+          </div>
+          <div class="pc-body">
+            <svg class="pc-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+            <div class="pc-user">Sin asignar</div>
+          </div>
+        </div>
+        <!-- PC 3 -->
+        <div class="pc-card" id="pc-3">
+          <div class="pc-header">
+            <span class="pc-title">Computador 3</span>
+            <span class="pc-status badge">Disponible</span>
+          </div>
+          <div class="pc-body">
+            <svg class="pc-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+            <div class="pc-user">Sin asignar</div>
+          </div>
+        </div>
+        <!-- PC 4 -->
+        <div class="pc-card" id="pc-4">
+          <div class="pc-header">
+            <span class="pc-title">Computador 4</span>
+            <span class="pc-status badge">Disponible</span>
+          </div>
+          <div class="pc-body">
+            <svg class="pc-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+            <div class="pc-user">Sin asignar</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- QUEUE STATS -->
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-num" id="stat-esperando">0</div>
+          <div class="stat-lbl">En Espera</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-num" id="stat-rindió">0</div>
+          <div class="stat-lbl">Exámenes Listos Hoy</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-num" id="stat-total">0</div>
+          <div class="stat-lbl">Total Registrados</div>
+        </div>
+      </div>
+
+      <!-- CURRENT QUEUE LIST -->
+      <div class="card">
+        <div class="card-header flex-between">
+          <h2>Lista de Espera Actual</h2>
+          <span class="badge badge-primary" id="list-counter">0 Personas</span>
+        </div>
+        <div class="table-responsive">
+          <table class="data-table" id="public-queue-table">
+            <thead>
+              <tr>
+                <th style="width: 80px;">N° Orden</th>
+                <th>Nombre Completo</th>
+                <th>RUT</th>
+                <th>Hora Llegada</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
+            <tbody id="public-queue-tbody">
+              <tr>
+                <td colspan="5" class="text-center text-muted">No hay personas registradas hoy.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="footer">
+    <div class="container text-center">
+      <p>&copy; 2026 Oficina OS10 Coquimbo - Carabineros de Chile. Todos los derechos reservados.</p>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

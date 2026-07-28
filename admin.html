@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Panel de Control Administrativo - OS10 Coquimbo">
+  <title>Administración Fila - OS10 Coquimbo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- FIXED NAVBAR -->
+  <header class="header">
+    <div class="header-container">
+      <div class="logo-group">
+        <img src="logo-os10.webp" alt="Logo OS10 Coquimbo" class="official-logo">
+        <div class="logo-text">
+          <h1>OS10 Coquimbo</h1>
+          <p>Carabineros de Chile - Administración</p>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="main-content">
+    
+    <!-- Admin Authentication Layer -->
+    <div id="admin-auth" class="card card-auth">
+      <div class="card-header text-center">
+        <svg class="lock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        <h2>Acceso Administrativo</h2>
+        <p>Para gestionar la cola y asignar computadores, ingrese su PIN de acceso.</p>
+      </div>
+      <form id="admin-login-form">
+        <div class="form-group">
+          <input type="password" id="admin-pin" placeholder="PIN (Por defecto: 1234)" class="text-center" required>
+          <span class="error-msg" id="pin-error">PIN Incorrecto. Intente de nuevo.</span>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Ingresar</button>
+      </form>
+    </div>
+
+    <!-- Admin Panel Dashboard (Hidden by default until PIN verified) -->
+    <div id="admin-dashboard" class="hidden">
+      
+      <!-- Stats Summary -->
+      <div class="stats-row" style="margin-bottom: 1.5rem;">
+        <div class="stat-card">
+          <div class="stat-num" id="stat-esperando">0</div>
+          <div class="stat-lbl">En Espera</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-num" id="stat-rindió">0</div>
+          <div class="stat-lbl">Finalizados</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-num" id="stat-total">0</div>
+          <div class="stat-lbl">Total Registrados</div>
+        </div>
+      </div>
+
+      <div class="admin-controls-bar card">
+        <div class="admin-profile">
+          <span class="admin-badge">Oficial de Guardia</span>
+          <h3>Controlador de Examen OS10</h3>
+        </div>
+        <div class="admin-actions">
+          <button id="btn-export-csv" class="btn btn-secondary btn-sm">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+            Descargar Excel/CSV
+          </button>
+          <button id="btn-reset-queue" class="btn btn-danger btn-sm">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            Reiniciar Día
+          </button>
+          <button id="btn-logout" class="btn btn-outline btn-sm">Salir</button>
+        </div>
+      </div>
+
+      <div class="admin-split-layout">
+        <!-- Left side: Live queue list with admin controls -->
+        <div class="card flex-grow">
+          <div class="card-header">
+            <h2>Fila de Espera Activa</h2>
+            <p>Seleccione un guardia para asignarle un computador de examen libre.</p>
+          </div>
+          <div class="table-responsive">
+            <table class="data-table" id="admin-queue-table">
+              <thead>
+                <tr>
+                  <th style="width: 80px;">N°</th>
+                  <th>Nombre Completo</th>
+                  <th>RUT</th>
+                  <th>Empresa</th>
+                  <th>Hora Llegada</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="admin-queue-tbody">
+                <tr>
+                  <td colspan="6" class="text-center text-muted">No hay personas esperando en la fila.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Right side: PC active monitors with management -->
+        <div class="card admin-pc-monitor">
+          <div class="card-header">
+            <h2>Monitoreo de Computadores</h2>
+            <p>Control de disponibilidad en tiempo real.</p>
+          </div>
+          <div class="admin-pcs-list">
+            <!-- Monitor PC 1 -->
+            <div class="admin-pc-item" id="admin-pc-monitor-1">
+              <div class="pc-indicator bg-available"></div>
+              <div class="admin-pc-details">
+                <h4>Computador 1</h4>
+                <p class="admin-pc-user">Disponible</p>
+              </div>
+              <button class="btn btn-outline btn-sm btn-liberar hidden" data-pc="1">Finalizar</button>
+            </div>
+            <!-- Monitor PC 2 -->
+            <div class="admin-pc-item" id="admin-pc-monitor-2">
+              <div class="pc-indicator bg-available"></div>
+              <div class="admin-pc-details">
+                <h4>Computador 2</h4>
+                <p class="admin-pc-user">Disponible</p>
+              </div>
+              <button class="btn btn-outline btn-sm btn-liberar hidden" data-pc="2">Finalizar</button>
+            </div>
+            <!-- Monitor PC 3 -->
+            <div class="admin-pc-item" id="admin-pc-monitor-3">
+              <div class="pc-indicator bg-available"></div>
+              <div class="admin-pc-details">
+                <h4>Computador 3</h4>
+                <p class="admin-pc-user">Disponible</p>
+              </div>
+              <button class="btn btn-outline btn-sm btn-liberar hidden" data-pc="3">Finalizar</button>
+            </div>
+            <!-- Monitor PC 4 -->
+            <div class="admin-pc-item" id="admin-pc-monitor-4">
+              <div class="pc-indicator bg-available"></div>
+              <div class="admin-pc-details">
+                <h4>Computador 4</h4>
+                <p class="admin-pc-user">Disponible</p>
+              </div>
+              <button class="btn btn-outline btn-sm btn-liberar hidden" data-pc="4">Finalizar</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- POPUP MODAL FOR ASSIGNING GUARD TO PC -->
+  <div id="assign-modal" class="overlay hidden">
+    <div class="card card-modal animate-pop">
+      <div class="card-header">
+        <h3>Asignar a Computador</h3>
+        <p>Seleccione qué computador de examen ocupará <strong id="assign-guard-name">Juan Pérez</strong>.</p>
+      </div>
+      <div class="pc-assignment-grid">
+        <button class="btn btn-assignment" id="btn-assign-pc-1" data-pc="1">
+          <span>PC 1</span>
+          <small class="pc-assign-state">Disponible</small>
+        </button>
+        <button class="btn btn-assignment" id="btn-assign-pc-2" data-pc="2">
+          <span>PC 2</span>
+          <small class="pc-assign-state">Disponible</small>
+        </button>
+        <button class="btn btn-assignment" id="btn-assign-pc-3" data-pc="3">
+          <span>PC 3</span>
+          <small class="pc-assign-state">Disponible</small>
+        </button>
+        <button class="btn btn-assignment" id="btn-assign-pc-4" data-pc="4">
+          <span>PC 4</span>
+          <small class="pc-assign-state">Disponible</small>
+        </button>
+      </div>
+      <div class="flex-end gap-2" style="margin-top: 1.5rem;">
+        <button id="btn-cancel-assign" class="btn btn-secondary">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <footer class="footer" style="margin-top: 4rem;">
+    <div class="container text-center">
+      <p>&copy; 2026 Oficina OS10 Coquimbo - Carabineros de Chile. Todos los derechos reservados.</p>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
