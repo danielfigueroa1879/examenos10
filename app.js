@@ -662,7 +662,7 @@ function assignGuardToPc(guardId, pcNum) {
   localStorage.setItem("os10_sync_trigger", Date.now());
 }
 
-// CSV EXPORT (Ordenado y con datos de examen)
+// CSV EXPORT (Ordenado y optimizado para Microsoft Excel con punto y coma)
 if (btnExportCsv) {
   btnExportCsv.addEventListener("click", () => {
     if (state.guards.length === 0) {
@@ -670,8 +670,9 @@ if (btnExportCsv) {
       return;
     }
     
-    let csvContent = "\uFEFF"; // BOM for UTF-8 compatibility with Excel (Spanish characters)
-    csvContent += "N° Orden,Nombres,Apellidos,RUT,Empresa,Hora de Llegada,Estado,PC Asignado,Puntaje,Resultado,Observaciones\n";
+    let csvContent = "\uFEFF"; // BOM for UTF-8 compatibility (Spanish characters)
+    csvContent += "sep=;\n"; // Force Excel to use semicolon separator
+    csvContent += "N° Orden;Nombres;Apellidos;RUT;Empresa;Hora de Llegada;Estado;PC Asignado;Puntaje;Resultado;Observaciones\n";
     
     // Sort guards by order number (arrival order)
     const sortedGuards = [...state.guards].sort((a, b) => a.orderNum.localeCompare(b.orderNum));
@@ -689,7 +690,7 @@ if (btnExportCsv) {
         `"${g.score || 'N/A'}"`,
         `"${g.result || 'N/A'}"`,
         `"${g.notes || 'N/A'}"`
-      ].join(",");
+      ].join(";");
       csvContent += row + "\n";
     });
     
