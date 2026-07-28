@@ -511,33 +511,88 @@ function renderAdminPcs() {
   }
 }
 
-// Liberar PC event listeners
+// Liberar PC event listeners (Muestra modal de ingreso de puntaje)
+let activePcForFinishing = null;
+let activeGuardForFinishing = null;
+
 document.querySelectorAll(".btn-liberar").forEach(btn => {
   btn.addEventListener("click", (e) => {
     const pcNum = e.target.getAttribute("data-pc");
-    liberarComputer(pcNum);
+    openFinishExamModal(pcNum);
   });
 });
 
-function liberarComputer(pcNum) {
+function openFinishExamModal(pcNum) {
   const config = state.computers[pcNum];
   if (config.status !== "Ocupado") return;
   
-  // Update guard status
   const guard = state.guards.find(g => g.id === config.guardId);
-  if (guard) {
-    guard.status = "Finalizado";
-  }
+  if (!guard) return;
   
-  // Free computer
-  config.status = "Disponible";
-  config.guardId = null;
+  activePcForFinishing = pcNum;
+  activeGuardForFinishing = guard;
   
-  saveState();
-  renderAll();
+  const nameLabel = document.getElementById("finish-guard-name");
+  if (nameLabel) nameLabel.innerText = `${guard.nombres} ${guard.apellidos}`;
   
-  // Notify other tabs
-  localStorage.setItem("os10_sync_trigger", Date.now());
+  const scoreInput = document.getElementById("exam-score");
+  const resultSelect = document.getElementById("exam-result");
+  const notesInput = document.getElementById("exam-notes");
+  
+  if (scoreInput) scoreInput.value = "";
+  if (resultSelect) resultSelect.value = "";
+  if (notesInput) notesInput.value = "";
+  
+  const modal = document.getElementById("finish-exam-modal");
+  if (modal) modal.classList.remove("hidden");
+}
+
+const finishExamForm = document.getElementById("finish-exam-form");
+const btnCancelFinish = document.getElementById("btn-cancel-finish");
+
+if (finishExamForm) {
+  finishExamForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    
+    if (!activeGuardForFinishing || !activePcForFinishing) return;
+    
+    const scoreVal = document.getElementById("exam-score").value;
+    const resultVal = document.getElementById("exam-result").value;
+    const notesVal = document.getElementById("exam-notes").value;
+    
+    // Guardar datos en el objeto del guardia
+    activeGuardForFinishing.status = "Finalizado";
+    activeGuardForFinishing.score = scoreVal + "%";
+    activeGuardForFinishing.result = resultVal;
+    activeGuardForFinishing.notes = notesVal || "Ninguna";
+    
+    // Liberar Computador
+    const config = state.computers[activePcForFinishing];
+    config.status = "Disponible";
+    config.guardId = null;
+    
+    saveState();
+    renderAll();
+    
+    // Cerrar modal
+    const modal = document.getElementById("finish-exam-modal");
+    if (modal) modal.classList.add("hidden");
+    
+    activePcForFinishing = null;
+    activeGuardForFinishing = null;
+    
+    // Sincronizar pestañas
+    localStorage.setItem("os10_sync_trigger", Date.now());
+  });
+}
+
+if (btnCancelFinish) {
+  btnCancelFinish.addEventListener("click", () => {
+    const modal = document.getElementById("finish-exam-modal");
+    if (modal) modal.classList.add("hidden");
+    activePcForFinishing = null;
+    activeGuardForFinishing = null;
+  });
 }
 
 // ASSIGNMENT MODAL FLOW
@@ -607,7 +662,7 @@ function assignGuardToPc(guardId, pcNum) {
   localStorage.setItem("os10_sync_trigger", Date.now());
 }
 
-// CSV EXPORT
+// CSV EXPORT (Ordenado y con datos de examen)
 if (btnExportCsv) {
   btnExportCsv.addEventListener("click", () => {
     if (state.guards.length === 0) {
@@ -615,10 +670,13 @@ if (btnExportCsv) {
       return;
     }
     
-    let csvContent = "\uFEFF"; // BOM for UTF-8
-    csvContent += "N° Orden,Nombres,Apellidos,RUT,Empresa,Hora de Llegada,Estado,PC Asignado\n";
+    let csvContent = "\uFEFF"; // BOM for UTF-8 compatibility with Excel (Spanish characters)
+    csvContent += "N° Orden,Nombres,Apellidos,RUT,Empresa,Hora de Llegada,Estado,PC Asignado,Puntaje,Resultado,Observaciones\n";
     
-    state.guards.forEach(g => {
+    // Sort guards by order number (arrival order)
+    const sortedGuards = [...state.guards].sort((a, b) => a.orderNum.localeCompare(b.orderNum));
+    
+    sortedGuards.forEach(g => {
       const row = [
         `"${g.orderNum}"`,
         `"${g.nombres}"`,
@@ -627,7 +685,10 @@ if (btnExportCsv) {
         `"${g.empresa}"`,
         `"${g.time}"`,
         `"${g.status}"`,
-        `"${g.pcAssigned || 'N/A'}"`
+        `"${g.pcAssigned || 'N/A'}"`,
+        `"${g.score || 'N/A'}"`,
+        `"${g.result || 'N/A'}"`,
+        `"${g.notes || 'N/A'}"`
       ].join(",");
       csvContent += row + "\n";
     });
@@ -639,7 +700,7 @@ if (btnExportCsv) {
     link.setAttribute("href", url);
     
     const today = new Date().toISOString().slice(0,10);
-    link.setAttribute("download", `OS10_Coquimbo_Cola_${today}.csv`);
+    link.setAttribute("download", `Reporte_Examenes_OS10_${today}.csv`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();

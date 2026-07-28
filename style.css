@@ -1,7 +1,7 @@
 /* CUSTOM COLOR SYSTEM & VARIABLES */
 :root {
-  --primary-color: #0A3C24;     /* Carabineros Dark Green */
-  --primary-light: #166534;     /* Mid Green */
+  --primary-color: #146314;     /* Carabineros Official Green */
+  --primary-light: #1E8C1E;     /* Lighter shade for hover */
   --accent-color: #D4AF37;      /* Gold Accent */
   --accent-hover: #FFB700;      /* Bright Gold */
   --bg-main: #F4F6F5;           /* Light grey-green tint background */
@@ -45,7 +45,7 @@ body {
   left: 0;
   right: 0;
   height: 72px;
-  background-color: rgba(10, 60, 36, 0.95);
+  background-color: rgba(20, 99, 20, 0.95);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border-bottom: 2.5px solid var(--accent-color);
@@ -355,7 +355,7 @@ body {
 }
 
 .btn-outline:hover {
-  background-color: rgba(10, 60, 36, 0.05);
+  background-color: rgba(20, 99, 20, 0.05);
 }
 
 .btn-block {
@@ -420,7 +420,7 @@ body {
 
 /* TICKET STYLING */
 .ticket {
-  background: linear-gradient(135deg, #166534, #0A3C24);
+  background: linear-gradient(135deg, var(--primary-light), var(--primary-color));
   color: #FFFFFF;
   padding: 1.25rem;
   border-radius: 12px;
