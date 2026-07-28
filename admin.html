@@ -185,8 +185,42 @@
       <div class="flex-end gap-2" style="margin-top: 1.5rem;">
         <button id="btn-cancel-assign" class="btn btn-secondary">Cancelar</button>
       </div>
+  </div>
+
+  <!-- POPUP MODAL FOR FINISHING EXAM AND RECORDING DATA -->
+  <div id="finish-exam-modal" class="overlay hidden">
+    <div class="card card-modal animate-pop" style="border-top: 5px solid var(--success);">
+      <div class="card-header">
+        <h3>Finalizar Examen y Registrar Resultados</h3>
+        <p>Ingrese los datos obtenidos en el examen de: <strong id="finish-guard-name">Juan Pérez</strong>.</p>
+      </div>
+      <form id="finish-exam-form">
+        <div class="form-grid" style="margin-top: 1rem;">
+          <div class="form-group">
+            <label for="exam-score">Puntaje Obtenido (%)</label>
+            <input type="number" id="exam-score" min="0" max="100" placeholder="Ej: 85" required>
+          </div>
+          <div class="form-group">
+            <label for="exam-result">Resultado del Examen</label>
+            <select id="exam-result" style="padding: 0.75rem 1rem; border: 1.5px solid var(--border-color); border-radius: 10px; background-color: #F8FAFC;" required>
+              <option value="" disabled selected>Seleccione resultado...</option>
+              <option value="Aprobado">Aprobado</option>
+              <option value="Reprobado">Reprobado</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="exam-notes">Observaciones / Detalles</label>
+            <input type="text" id="exam-notes" placeholder="Ej: Aprobó sin observaciones">
+          </div>
+        </div>
+        <div class="flex-end gap-2" style="margin-top: 1.5rem; display: flex; justify-content: flex-end;">
+          <button type="button" id="btn-cancel-finish" class="btn btn-secondary">Cancelar</button>
+          <button type="submit" class="btn btn-primary" style="background-color: var(--success); border-color: var(--success);">Guardar Resultados</button>
+        </div>
+      </form>
     </div>
   </div>
+
 
   <footer class="footer" style="margin-top: 4rem;">
     <div class="container text-center">
