@@ -95,24 +95,57 @@ async function saveState() {
 }
 
 // SINCRONIZACIÓN EN TIEMPO REAL DESDE SUPABASE
+function applyRemoteState(newState) {
+  if (!newState) return;
+  const newGuardsJson = JSON.stringify(newState.guards || []);
+  const newComputersJson = JSON.stringify(newState.computers || state.computers);
+  const currentGuardsJson = JSON.stringify(state.guards);
+  const currentComputersJson = JSON.stringify(state.computers);
+
+  if (newGuardsJson === currentGuardsJson && newComputersJson === currentComputersJson) {
+    return;
+  }
+
+  state.guards = JSON.parse(newGuardsJson);
+  state.computers = JSON.parse(newComputersJson);
+  localStorage.setItem("os10_guards", newGuardsJson);
+  localStorage.setItem("os10_computers", newComputersJson);
+  renderAll();
+}
+
+async function pollRemoteState() {
+  if (!supabaseClient) return;
+  try {
+    const { data, error } = await supabaseClient
+      .from('os10_sync')
+      .select('state')
+      .eq('id', 1)
+      .single();
+    if (!error && data && data.state) {
+      applyRemoteState(data.state);
+    }
+  } catch (err) {
+    console.log("Error en polling:", err);
+  }
+}
+
 function initSupabaseSync() {
   if (!supabaseClient) return;
-  
+
   supabaseClient
     .channel('os10-realtime-changes')
-    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'os10_sync', filter: 'id=eq.1' }, payload => {
-      const newState = payload.new.state;
-      if (newState) {
-        state.guards = newState.guards || [];
-        state.computers = newState.computers || state.computers;
-        
-        localStorage.setItem("os10_guards", JSON.stringify(state.guards));
-        localStorage.setItem("os10_computers", JSON.stringify(state.computers));
-        
-        renderAll();
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'os10_sync' }, payload => {
+      if (payload.new && payload.new.state) {
+        applyRemoteState(payload.new.state);
       }
     })
-    .subscribe();
+    .subscribe((status) => {
+      console.log('Supabase realtime status:', status);
+    });
+
+  // Respaldo por polling: garantiza sincronización aunque el WebSocket falle
+  // (redes móviles, wifi restrictiva, proxies, etc.)
+  setInterval(pollRemoteState, 5000);
 }
 
 // DOM ELEMENTS (Check if they exist before using them)
