@@ -16,7 +16,7 @@ let state = {
 // CONFIGURACIÓN DE SUPABASE
 // Reemplaza estos valores con las credenciales de tu proyecto de Supabase
 // ==========================================
-const SUPABASE_URL = "https://ixsylxfjuljzjnqkomyw.supabase.co";
+const SUPABASE_URL = "https://ixsylxfjuljznqkomyw.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml4c3lseGZqdWxqempucWtvbXl3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUzMjkwNTksImV4cCI6MjEwMDkwNTA1OX0.GSz79HJRGX00DxLMY3iubsNVM82_csd2w077glN_XCo";
 
 let supabaseClient = null;
