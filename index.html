@@ -74,8 +74,29 @@
             </div>
             
             <div class="form-group">
-              <label for="empresa">Empresa de Seguridad / OTEC (Opcional)</label>
-              <input type="text" id="empresa" placeholder="Ej: Seguridad Coquimbo Ltda.">
+              <label for="empresa-select">Empresa de Capacitación / OTEC (Opcional)</label>
+              <select id="empresa-select" style="padding: 0.75rem 1rem; border: 1.5px solid var(--border-color); border-radius: 10px; background-color: #F8FAFC;" required>
+                <option value="" selected>Ninguna / Particular</option>
+                <option value="CHIRINO CAPACITACION SPA">CHIRINO CAPACITACION SPA</option>
+                <option value="GARYC CAPACITACIÓN LTDA.">GARYC CAPACITACIÓN LTDA.</option>
+                <option value="CONSEL CAPACITACIONES SEGURIDAD Y ALARMA SPA">CONSEL CAPACITACIONES SEGURIDAD Y ALARMA SPA</option>
+                <option value="PAGANINI Y ROJAS LIMITADA">PAGANINI Y ROJAS LIMITADA</option>
+                <option value="ATHENA SEGURIDAD PRIVADA SPA.">ATHENA SEGURIDAD PRIVADA SPA.</option>
+                <option value="INSERGROUP SPA">INSERGROUP SPA</option>
+                <option value="AV CAPACITACIONES Y SEGURIDAD SPA">AV CAPACITACIONES Y SEGURIDAD SPA</option>
+                <option value="OTEC ETHOS LIMITADA">OTEC ETHOS LIMITADA</option>
+                <option value="GLOBAL CAPACITACIONES LTDA">GLOBAL CAPACITACIONES LTDA</option>
+                <option value="VALT CAPACITACIONES E.I.R.L">VALT CAPACITACIONES E.I.R.L</option>
+                <option value="BRUMA SEGURIDAD SPA">BRUMA SEGURIDAD SPA</option>
+                <option value="MAFER SPA.">MAFER SPA.</option>
+                <option value="MATTOR SECURITY Y CIA. LTDA.">MATTOR SECURITY Y CIA. LTDA.</option>
+                <option value="Otro">Otro (Especificar...)</option>
+              </select>
+            </div>
+            
+            <div class="form-group hidden" id="empresa-otro-group">
+              <label for="empresa-otro">Escriba el nombre de la empresa</label>
+              <input type="text" id="empresa-otro" placeholder="Ej: Nueva Empresa Ltda.">
             </div>
           </div>
           
