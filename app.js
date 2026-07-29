@@ -12,6 +12,17 @@ let state = {
   isAdminAuthenticated: false
 };
 
+// Firebase Realtime Database Config
+const firebaseConfig = {
+  databaseURL: "https://examenos10-default-rtdb.firebaseio.com/"
+};
+
+let database = null;
+if (typeof firebase !== 'undefined') {
+  firebase.initializeApp(firebaseConfig);
+  database = firebase.database();
+}
+
 // LOAD FROM LOCAL STORAGE ON START
 function loadState() {
   const savedGuards = localStorage.getItem("os10_guards");
@@ -42,10 +53,41 @@ function loadState() {
   }
 }
 
-// SAVE TO LOCAL STORAGE
+// SAVE TO LOCAL STORAGE & FIREBASE
 function saveState() {
   localStorage.setItem("os10_guards", JSON.stringify(state.guards));
   localStorage.setItem("os10_computers", JSON.stringify(state.computers));
+  
+  if (database) {
+    database.ref("os10_state").set({
+      guards: state.guards,
+      computers: state.computers
+    });
+  }
+}
+
+// FIREBASE REAL-TIME SYNCHRONIZATION
+function initFirebaseSync() {
+  if (!database) return;
+  
+  database.ref("os10_state").on("value", (snapshot) => {
+    const data = snapshot.val();
+    if (data) {
+      state.guards = data.guards || [];
+      state.computers = data.computers || {
+        1: { status: "Disponible", guardId: null },
+        2: { status: "Disponible", guardId: null },
+        3: { status: "Disponible", guardId: null },
+        4: { status: "Disponible", guardId: null }
+      };
+      
+      // Cache values locally
+      localStorage.setItem("os10_guards", JSON.stringify(state.guards));
+      localStorage.setItem("os10_computers", JSON.stringify(state.computers));
+      
+      renderAll();
+    }
+  });
 }
 
 // DOM ELEMENTS (Check if they exist before using them)
@@ -100,8 +142,9 @@ document.addEventListener("DOMContentLoaded", () => {
   initRutFormatter();
   initFormValidation();
   initAdminAuth();
+  initFirebaseSync(); // Start Firebase real-time listeners!
   
-  // Real-time synchronization between browser tabs using the storage event API
+  // Real-time synchronization fallback (local tabs)
   window.addEventListener("storage", (e) => {
     if (e.key === "os10_guards" || e.key === "os10_computers") {
       loadState();
