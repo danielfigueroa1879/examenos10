@@ -58,6 +58,7 @@ const apellidosInput = document.getElementById("apellidos");
 const empresaSelect = document.getElementById("empresa-select");
 const empresaOtroGroup = document.getElementById("empresa-otro-group");
 const empresaOtroInput = document.getElementById("empresa-otro");
+const telefonoInput = document.getElementById("telefono");
 
 const successOverlay = document.getElementById("success-overlay");
 const closeSuccessBtn = document.getElementById("close-success-btn");
@@ -254,6 +255,31 @@ function initFormValidation() {
       }
     });
   }
+
+  // Event listener and validation for phone numbers
+  if (telefonoInput) {
+    telefonoInput.addEventListener("input", () => {
+      // Force digit-only input
+      const cleaned = telefonoInput.value.replace(/[^0-9]/g, '');
+      telefonoInput.value = cleaned;
+      
+      const errorMsg = document.getElementById("telefono-error");
+      if (cleaned.length === 9) {
+        telefonoInput.classList.remove("invalid");
+        telefonoInput.classList.add("valid");
+        if (errorMsg) errorMsg.style.display = "none";
+      } else {
+        telefonoInput.classList.remove("valid");
+        if (cleaned.length > 0) {
+          telefonoInput.classList.add("invalid");
+          if (errorMsg) errorMsg.style.display = "block";
+        } else {
+          telefonoInput.classList.remove("invalid");
+          if (errorMsg) errorMsg.style.display = "none";
+        }
+      }
+    });
+  }
 }
 
 // FORM SUBMISSION (index.html)
@@ -264,6 +290,7 @@ if (registroForm) {
     const rutVal = rutInput.value.trim();
     const nombresVal = nombresInput.value.trim();
     const apellidosVal = apellidosInput.value.trim();
+    const telefonoVal = telefonoInput ? telefonoInput.value.trim() : "";
     
     // Obtener valor de la empresa seleccionada
     let empresaVal = "";
@@ -294,6 +321,14 @@ if (registroForm) {
       hasErrors = true;
     }
 
+    // Validar teléfono de contacto (9 dígitos)
+    if (telefonoInput && (telefonoVal === "" || !/^[0-9]{9}$/.test(telefonoVal))) {
+      telefonoInput.classList.add("invalid");
+      const err = document.getElementById("telefono-error");
+      if (err) err.style.display = "block";
+      hasErrors = true;
+    }
+
     // Validar si no seleccionó ninguna empresa
     if (empresaSelect && empresaSelect.value === "") {
       empresaSelect.classList.add("invalid");
@@ -321,6 +356,7 @@ if (registroForm) {
       nombres: nombresVal,
       apellidos: apellidosVal,
       rut: rutVal,
+      telefono: telefonoVal,
       empresa: empresaVal || "Particular",
       time: timeStr,
       status: "En Espera",
@@ -343,6 +379,11 @@ if (registroForm) {
     }
     if (empresaOtroGroup) {
       empresaOtroGroup.classList.add("hidden");
+    }
+    if (telefonoInput) {
+      telefonoInput.classList.remove("valid", "invalid");
+      const err = document.getElementById("telefono-error");
+      if (err) err.style.display = "none";
     }
     const succ = document.getElementById("rut-success");
     if (succ) succ.style.display = "none";
@@ -519,7 +560,7 @@ function renderAdminQueue() {
   if (waitingGuards.length === 0) {
     adminQueueTbody.innerHTML = `
       <tr>
-        <td colspan="6" class="text-center text-muted">No hay personas esperando en la fila.</td>
+        <td colspan="7" class="text-center text-muted">No hay personas esperando en la fila.</td>
       </tr>
     `;
     return;
@@ -532,6 +573,7 @@ function renderAdminQueue() {
       <td class="font-medium">${guard.nombres} ${guard.apellidos}</td>
       <td>${guard.rut}</td>
       <td class="text-muted">${guard.empresa}</td>
+      <td>${guard.telefono || 'N/A'}</td>
       <td>${guard.time}</td>
       <td>
         <button class="btn btn-primary btn-sm btn-llamar-pc" data-id="${guard.id}">
@@ -738,7 +780,7 @@ if (btnExportCsv) {
     
     let csvContent = "\uFEFF"; // BOM for UTF-8 compatibility (Spanish characters)
     csvContent += "sep=;\n"; // Force Excel to use semicolon separator
-    csvContent += "N° Orden;Nombres;Apellidos;RUT;Empresa;Hora de Llegada;Estado;PC Asignado;Puntaje;Resultado;Observaciones\n";
+    csvContent += "N° Orden;Nombres;Apellidos;RUT;Teléfono;Empresa;Hora de Llegada;Estado;PC Asignado;Puntaje;Resultado;Observaciones\n";
     
     // Sort guards by order number (arrival order)
     const sortedGuards = [...state.guards].sort((a, b) => a.orderNum.localeCompare(b.orderNum));
@@ -749,6 +791,7 @@ if (btnExportCsv) {
         `"${g.nombres}"`,
         `"${g.apellidos}"`,
         `"${g.rut}"`,
+        `"${g.telefono || 'N/A'}"`,
         `"${g.empresa}"`,
         `"${g.time}"`,
         `"${g.status}"`,
