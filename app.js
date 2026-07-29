@@ -770,7 +770,7 @@ function assignGuardToPc(guardId, pcNum) {
   localStorage.setItem("os10_sync_trigger", Date.now());
 }
 
-// CSV EXPORT (Ordenado y optimizado para Microsoft Excel con punto y coma)
+// EXPORTAR A EXCEL (Con formato de colores verde #146314, texto blanco y celdas centradas)
 if (btnExportCsv) {
   btnExportCsv.addEventListener("click", () => {
     if (state.guards.length === 0) {
@@ -778,39 +778,106 @@ if (btnExportCsv) {
       return;
     }
     
-    let csvContent = "\uFEFF"; // BOM for UTF-8 compatibility (Spanish characters)
-    csvContent += "sep=;\n"; // Force Excel to use semicolon separator
-    csvContent += "N° Orden;Nombres;Apellidos;RUT;Teléfono;Empresa;Hora de Llegada;Estado;PC Asignado;Puntaje;Resultado;Observaciones\n";
-    
-    // Sort guards by order number (arrival order)
+    // Ordenar guardias por número de orden correlativo
     const sortedGuards = [...state.guards].sort((a, b) => a.orderNum.localeCompare(b.orderNum));
     
+    // Generar filas de la tabla
+    let tableRows = "";
     sortedGuards.forEach(g => {
-      const row = [
-        `"${g.orderNum}"`,
-        `"${g.nombres}"`,
-        `"${g.apellidos}"`,
-        `"${g.rut}"`,
-        `"${g.telefono || 'N/A'}"`,
-        `"${g.empresa}"`,
-        `"${g.time}"`,
-        `"${g.status}"`,
-        `"${g.pcAssigned || 'N/A'}"`,
-        `"${g.score || 'N/A'}"`,
-        `"${g.result || 'N/A'}"`,
-        `"${g.notes || 'N/A'}"`
-      ].join(";");
-      csvContent += row + "\n";
+      tableRows += `
+        <tr>
+          <td>${g.orderNum}</td>
+          <td>${g.nombres}</td>
+          <td>${g.apellidos}</td>
+          <td>${g.rut}</td>
+          <td>${g.telefono || 'N/A'}</td>
+          <td>${g.empresa}</td>
+          <td>${g.time}</td>
+          <td>${g.status}</td>
+          <td>${g.pcAssigned || 'N/A'}</td>
+          <td>${g.score || 'N/A'}</td>
+          <td>${g.result || 'N/A'}</td>
+          <td>${g.notes || 'Ninguna'}</td>
+        </tr>
+      `;
     });
     
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    // Plantilla XML/HTML de Excel para forzar estilos (verde #146314 y alineación centrada)
+    const excelTemplate = `
+      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+      <head>
+        <meta charset="utf-8">
+        <!--[if gte mso 9]>
+        <xml>
+          <x:ExcelWorkbook>
+            <x:ExcelWorksheets>
+              <x:ExcelWorksheet>
+                <x:Name>Exámenes OS10</x:Name>
+                <x:WorksheetOptions>
+                  <x:DisplayGridlines/>
+                </x:WorksheetOptions>
+              </x:ExcelWorksheet>
+            </x:ExcelWorksheets>
+          </x:ExcelWorkbook>
+        </xml>
+        <![endif]-->
+        <style>
+          table {
+            border-collapse: collapse;
+          }
+          th {
+            background-color: #146314 !important;
+            color: #ffffff !important;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            font-size: 11pt;
+            font-weight: bold;
+            text-align: center;
+            border: 1px solid #999999;
+            padding: 10px;
+          }
+          td {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            font-size: 10pt;
+            text-align: center;
+            border: 1px solid #cccccc;
+            padding: 8px;
+          }
+        </style>
+      </head>
+      <body>
+        <table>
+          <thead>
+            <tr>
+              <th>N° Orden</th>
+              <th>Nombres</th>
+              <th>Apellidos</th>
+              <th>RUT</th>
+              <th>Teléfono</th>
+              <th>Empresa</th>
+              <th>Hora Llegada</th>
+              <th>Estado</th>
+              <th>PC Asignado</th>
+              <th>Puntaje</th>
+              <th>Resultado</th>
+              <th>Observaciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${tableRows}
+          </tbody>
+        </table>
+      </body>
+      </html>
+    `;
+    
+    const blob = new Blob([excelTemplate], { type: "application/vnd.ms-excel;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     
     const link = document.createElement("a");
     link.setAttribute("href", url);
     
     const today = new Date().toISOString().slice(0,10);
-    link.setAttribute("download", `Reporte_Examenes_OS10_${today}.csv`);
+    link.setAttribute("download", `Reporte_Examenes_OS10_${today}.xls`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
