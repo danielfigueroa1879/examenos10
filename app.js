@@ -161,19 +161,18 @@ const assignmentButtons = document.querySelectorAll(".btn-assignment");
 let activeGuardForAssignment = null;
 
 // INITIALIZE APP
-document.addEventListener("DOMContentLoaded", async () => {
-  await loadState();
+document.addEventListener("DOMContentLoaded", () => {
+  loadState(); // Carga en segundo plano sin bloquear la página
   initTabs();
   initRutFormatter();
   initFormValidation();
-  initAdminAuth();
+  initAdminAuth(); // Registra el formulario de PIN inmediatamente
   initSupabaseSync(); // Iniciar sincronización de datos en la nube
   
   // Real-time synchronization fallback (local tabs)
-  window.addEventListener("storage", async (e) => {
+  window.addEventListener("storage", (e) => {
     if (e.key === "os10_guards" || e.key === "os10_computers") {
-      await loadState();
-      renderAll();
+      loadState();
     }
   });
 
