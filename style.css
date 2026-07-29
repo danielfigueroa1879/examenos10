@@ -8,7 +8,7 @@
   --bg-card: #FFFFFF;
   --text-dark: #1E293B;         /* Slate 800 */
   --text-muted: #64748B;        /* Slate 500 */
-  --border-color: #E2E8F0;      /* Slate 200 */
+  --border-color: #94A3B8;      /* Well-defined Slate Gray */
   --success: #10B981;           /* Emerald 500 */
   --warning: #F59E0B;           /* Amber 500 */
   --danger: #EF4444;            /* Red 500 */
@@ -153,7 +153,7 @@ body {
 .card {
   background-color: var(--bg-card);
   border-radius: var(--border-radius);
-  border: 1px solid var(--border-color);
+  border: 1.5px solid var(--border-color);
   box-shadow: var(--shadow-sm);
   padding: 2rem;
   margin-bottom: 2rem;
@@ -496,7 +496,7 @@ body {
 .pc-card {
   background-color: var(--bg-card);
   border-radius: 12px;
-  border: 1.5px solid var(--border-color);
+  border: 2px solid var(--border-color);
   padding: 1.25rem;
   text-align: center;
   transition: var(--transition);
