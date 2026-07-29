@@ -12,19 +12,20 @@ let state = {
   isAdminAuthenticated: false
 };
 
-// Firebase Realtime Database Config
-const firebaseConfig = {
-  databaseURL: "https://examenos10-default-rtdb.firebaseio.com/"
-};
+// ==========================================
+// CONFIGURACIÓN DE SUPABASE
+// Reemplaza estos valores con las credenciales de tu proyecto de Supabase
+// ==========================================
+const SUPABASE_URL = "https://ixsylxfjuljznqkomyw.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_cdpre--X_RNNmk-7f-6J4w_ueSpJp2c";
 
-let database = null;
-if (typeof firebase !== 'undefined') {
-  firebase.initializeApp(firebaseConfig);
-  database = firebase.database();
+let supabaseClient = null;
+if (typeof supabase !== 'undefined' && SUPABASE_URL !== "YOUR_SUPABASE_URL") {
+  supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 }
 
-// LOAD FROM LOCAL STORAGE ON START
-function loadState() {
+// LOAD FROM LOCAL STORAGE & SUPABASE ON START
+async function loadState() {
   const savedGuards = localStorage.getItem("os10_guards");
   const savedPcs = localStorage.getItem("os10_computers");
   const savedAuth = sessionStorage.getItem("os10_admin_auth");
@@ -51,43 +52,65 @@ function loadState() {
   } else {
     state.isAdminAuthenticated = false;
   }
-}
 
-// SAVE TO LOCAL STORAGE & FIREBASE
-function saveState() {
-  localStorage.setItem("os10_guards", JSON.stringify(state.guards));
-  localStorage.setItem("os10_computers", JSON.stringify(state.computers));
-  
-  if (database) {
-    database.ref("os10_state").set({
-      guards: state.guards,
-      computers: state.computers
-    });
+  // Cargar datos desde Supabase si el cliente está configurado
+  if (supabaseClient) {
+    try {
+      const { data, error } = await supabaseClient
+        .from('os10_sync')
+        .select('state')
+        .eq('id', 1)
+        .single();
+        
+      if (!error && data && data.state) {
+        state.guards = data.state.guards || [];
+        state.computers = data.state.computers || state.computers;
+        
+        localStorage.setItem("os10_guards", JSON.stringify(state.guards));
+        localStorage.setItem("os10_computers", JSON.stringify(state.computers));
+      }
+    } catch (err) {
+      console.log("Error de conexión inicial con Supabase:", err);
+    }
   }
 }
 
-// FIREBASE REAL-TIME SYNCHRONIZATION
-function initFirebaseSync() {
-  if (!database) return;
+// SAVE TO LOCAL STORAGE & SUPABASE
+async function saveState() {
+  localStorage.setItem("os10_guards", JSON.stringify(state.guards));
+  localStorage.setItem("os10_computers", JSON.stringify(state.computers));
   
-  database.ref("os10_state").on("value", (snapshot) => {
-    const data = snapshot.val();
-    if (data) {
-      state.guards = data.guards || [];
-      state.computers = data.computers || {
-        1: { status: "Disponible", guardId: null },
-        2: { status: "Disponible", guardId: null },
-        3: { status: "Disponible", guardId: null },
-        4: { status: "Disponible", guardId: null }
-      };
-      
-      // Cache values locally
-      localStorage.setItem("os10_guards", JSON.stringify(state.guards));
-      localStorage.setItem("os10_computers", JSON.stringify(state.computers));
-      
-      renderAll();
+  if (supabaseClient) {
+    try {
+      await supabaseClient
+        .from('os10_sync')
+        .update({ state: { guards: state.guards, computers: state.computers } })
+        .eq('id', 1);
+    } catch (err) {
+      console.log("Error al guardar en Supabase:", err);
     }
-  });
+  }
+}
+
+// SINCRONIZACIÓN EN TIEMPO REAL DESDE SUPABASE
+function initSupabaseSync() {
+  if (!supabaseClient) return;
+  
+  supabaseClient
+    .channel('os10-realtime-changes')
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'os10_sync', filter: 'id=eq.1' }, payload => {
+      const newState = payload.new.state;
+      if (newState) {
+        state.guards = newState.guards || [];
+        state.computers = newState.computers || state.computers;
+        
+        localStorage.setItem("os10_guards", JSON.stringify(state.guards));
+        localStorage.setItem("os10_computers", JSON.stringify(state.computers));
+        
+        renderAll();
+      }
+    })
+    .subscribe();
 }
 
 // DOM ELEMENTS (Check if they exist before using them)
@@ -142,7 +165,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initRutFormatter();
   initFormValidation();
   initAdminAuth();
-  initFirebaseSync(); // Start Firebase real-time listeners!
+  initSupabaseSync(); // Iniciar sincronización de datos en la nube
   
   // Real-time synchronization fallback (local tabs)
   window.addEventListener("storage", (e) => {
