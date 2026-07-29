@@ -68,6 +68,8 @@ async function loadState() {
         
         localStorage.setItem("os10_guards", JSON.stringify(state.guards));
         localStorage.setItem("os10_computers", JSON.stringify(state.computers));
+        
+        renderAll();
       }
     } catch (err) {
       console.log("Error de conexión inicial con Supabase:", err);
@@ -159,8 +161,8 @@ const assignmentButtons = document.querySelectorAll(".btn-assignment");
 let activeGuardForAssignment = null;
 
 // INITIALIZE APP
-document.addEventListener("DOMContentLoaded", () => {
-  loadState();
+document.addEventListener("DOMContentLoaded", async () => {
+  await loadState();
   initTabs();
   initRutFormatter();
   initFormValidation();
@@ -168,9 +170,9 @@ document.addEventListener("DOMContentLoaded", () => {
   initSupabaseSync(); // Iniciar sincronización de datos en la nube
   
   // Real-time synchronization fallback (local tabs)
-  window.addEventListener("storage", (e) => {
+  window.addEventListener("storage", async (e) => {
     if (e.key === "os10_guards" || e.key === "os10_computers") {
-      loadState();
+      await loadState();
       renderAll();
     }
   });
