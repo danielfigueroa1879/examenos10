@@ -1051,3 +1051,350 @@ body {
     }
   }
 }
+
+/* ============================================
+   EXAM RESULT PREVIEW (finish-exam modal)
+   ============================================ */
+.exam-result-preview {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  background-color: #F8FAFC;
+  border-radius: 10px;
+  margin-top: 0.75rem;
+  border: 1px solid var(--border-color);
+}
+
+.preview-label {
+  font-weight: 600;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.preview-badge {
+  padding: 0.45rem 1rem;
+  border-radius: 8px;
+  background-color: #E2E8F0;
+  color: var(--text-muted);
+  font-weight: 700;
+  font-size: 0.95rem;
+  letter-spacing: 0.02em;
+  transition: var(--transition);
+}
+
+.preview-badge.pass {
+  background-color: rgba(34, 197, 94, 0.15);
+  color: #15803D;
+  border: 1.5px solid #22C55E;
+}
+
+.preview-badge.fail {
+  background-color: rgba(239, 68, 68, 0.15);
+  color: #B91C1C;
+  border: 1.5px solid #EF4444;
+}
+
+#exam-score.score-pass {
+  border-color: #22C55E;
+  color: #15803D;
+  font-weight: 700;
+}
+
+#exam-score.score-fail {
+  border-color: #EF4444;
+  color: #B91C1C;
+  font-weight: 700;
+}
+
+/* ============================================
+   FINISHED EXAMS LIST (admin panel)
+   ============================================ */
+.finished-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.finished-item {
+  display: flex;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border-color);
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.finished-item:last-child {
+  border-bottom: none;
+}
+
+.finished-order {
+  background-color: var(--primary-color);
+  color: #FFFFFF;
+  padding: 0.2rem 0.55rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.finished-name {
+  font-weight: 600;
+  color: var(--primary-color);
+  flex: 1;
+}
+
+.finished-score {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.score-pass-text {
+  color: #15803D;
+}
+
+.score-fail-text {
+  color: #DC2626;
+}
+
+.finished-result-badge {
+  padding: 0.25rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.badge-pass {
+  background-color: rgba(34, 197, 94, 0.15);
+  color: #15803D;
+}
+
+.badge-fail {
+  background-color: rgba(239, 68, 68, 0.15);
+  color: #B91C1C;
+}
+
+/* ============================================
+   ADMIN PANEL — MOBILE OPTIMIZATIONS
+   ============================================ */
+@media (max-width: 768px) {
+  /* Controls bar: stack vertical, buttons full width in a grid */
+  .admin-controls-bar {
+    padding: 1rem;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+
+  .admin-profile h3 {
+    font-size: 0.95rem;
+    text-align: center;
+    line-height: 1.3;
+  }
+
+  .admin-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+    width: 100%;
+  }
+
+  .admin-actions .btn {
+    width: 100%;
+    justify-content: center;
+    font-size: 0.72rem;
+    padding: 0.55rem 0.4rem;
+    gap: 0.3rem;
+  }
+
+  .admin-actions #btn-logout {
+    grid-column: 1 / -1;
+  }
+
+  .admin-actions .btn-icon {
+    width: 14px;
+    height: 14px;
+  }
+
+  /* Turn the admin queue table into stacked cards */
+  #admin-queue-table thead {
+    display: none;
+  }
+
+  #admin-queue-table,
+  #admin-queue-table tbody,
+  #admin-queue-table tr,
+  #admin-queue-table td {
+    display: block;
+    width: 100%;
+  }
+
+  #admin-queue-table tr {
+    background-color: #F8FAFC;
+    border: 1px solid var(--border-color);
+    border-left: 4px solid var(--primary-color);
+    border-radius: 10px;
+    padding: 0.85rem 0.9rem;
+    margin-bottom: 0.75rem;
+  }
+
+  #admin-queue-table tr:hover {
+    background-color: #F8FAFC;
+  }
+
+  #admin-queue-table td {
+    padding: 0.2rem 0;
+    border: none;
+    font-size: 0.85rem;
+    text-align: left;
+  }
+
+  /* Order # → badge at the top */
+  #admin-queue-table td:first-child:not([colspan]) {
+    display: inline-block;
+    width: auto;
+    background-color: var(--primary-color);
+    color: #FFFFFF;
+    padding: 0.2rem 0.55rem;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    margin-bottom: 0.35rem;
+  }
+
+  /* Name → prominent */
+  #admin-queue-table td:nth-child(2) {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--primary-color);
+    margin-bottom: 0.2rem;
+  }
+
+  /* Meta fields with inline labels */
+  #admin-queue-table td:nth-child(3)::before,
+  #admin-queue-table td:nth-child(4)::before,
+  #admin-queue-table td:nth-child(5)::before,
+  #admin-queue-table td:nth-child(6)::before {
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-right: 0.3rem;
+  }
+  #admin-queue-table td:nth-child(3)::before { content: "RUT:"; }
+  #admin-queue-table td:nth-child(4)::before { content: "Empresa:"; }
+  #admin-queue-table td:nth-child(5)::before { content: "Teléfono:"; }
+  #admin-queue-table td:nth-child(6)::before { content: "Hora:"; }
+
+  /* Action button → full width at the bottom */
+  #admin-queue-table td:last-child {
+    margin-top: 0.65rem;
+    padding: 0;
+  }
+
+  #admin-queue-table td:last-child .btn {
+    width: 100%;
+    padding: 0.7rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+  }
+
+  /* Empty state row */
+  #admin-queue-table tr:has(td[colspan]) {
+    background: transparent;
+    border: none;
+    padding: 0;
+  }
+
+  #admin-queue-table td[colspan] {
+    text-align: center;
+    padding: 1.5rem 0;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+  }
+
+  /* Assignment modal → tighter grid */
+  .pc-assignment-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 0.6rem;
+    margin-top: 1rem;
+  }
+
+  .btn-assignment {
+    padding: 1rem 0.5rem;
+  }
+
+  .btn-assignment span {
+    font-size: 1rem;
+  }
+
+  /* Finish-exam modal → single column form */
+  #finish-exam-modal .card-modal {
+    max-width: 95vw;
+  }
+
+  #finish-exam-modal .form-grid {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+
+  /* Modal cards: safe padding + scrollable if needed */
+  .overlay .card-modal {
+    padding: 1.1rem 1rem;
+    margin: 0.5rem;
+  }
+
+  /* Exam result preview — mobile */
+  .exam-result-preview {
+    padding: 0.7rem 0.8rem;
+    gap: 0.55rem;
+    flex-wrap: wrap;
+  }
+
+  .preview-label {
+    font-size: 0.85rem;
+  }
+
+  .preview-badge {
+    padding: 0.4rem 0.75rem;
+    font-size: 0.9rem;
+    flex: 1;
+    text-align: center;
+  }
+
+  /* Make the score input big and thumb-friendly on mobile */
+  #exam-score {
+    font-size: 1.5rem;
+    text-align: center;
+    font-weight: 700;
+    padding: 0.75rem;
+  }
+
+  /* Finished list — mobile compact card */
+  .finished-item {
+    padding: 0.7rem 0.75rem;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+  }
+
+  .finished-name {
+    flex-basis: 100%;
+    order: 3;
+    margin-top: 0.15rem;
+    font-size: 0.9rem;
+  }
+
+  .finished-order {
+    order: 1;
+  }
+
+  .finished-score {
+    order: 2;
+    margin-left: auto;
+    font-size: 1.05rem;
+  }
+
+  .finished-result-badge {
+    order: 4;
+    margin-left: auto;
+    font-size: 0.7rem;
+  }
+}

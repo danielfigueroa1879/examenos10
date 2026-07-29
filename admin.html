@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=2.4">
 </head>
 <body>
 
@@ -76,6 +76,17 @@
             Reiniciar Día
           </button>
           <button id="btn-logout" class="btn btn-outline btn-sm">Salir</button>
+        </div>
+      </div>
+
+      <!-- Finalized exams section -->
+      <div class="card" style="margin-bottom: 1.5rem;">
+        <div class="card-header">
+          <h2>Exámenes Finalizados Hoy</h2>
+          <p>Registro de puntajes. Aprueban con 60% o más.</p>
+        </div>
+        <div id="admin-finished-list" class="finished-list">
+          <p class="text-center text-muted" style="padding: 1rem;">Aún no hay exámenes finalizados.</p>
         </div>
       </div>
 
@@ -197,18 +208,14 @@
       <form id="finish-exam-form">
         <div class="form-grid" style="margin-top: 1rem;">
           <div class="form-group">
-            <label for="exam-score">Puntaje Obtenido (%)</label>
-            <input type="number" id="exam-score" min="0" max="100" placeholder="Ej: 85" required>
+            <label for="exam-score">Puntaje Obtenido (%) — Aprueba con 60%</label>
+            <input type="number" id="exam-score" min="0" max="100" inputmode="numeric" placeholder="Ej: 85" required>
           </div>
-          <div class="form-group">
-            <label for="exam-result">Resultado del Examen</label>
-            <select id="exam-result" style="padding: 0.75rem 1rem; border: 1.5px solid var(--border-color); border-radius: 10px; background-color: #F8FAFC;" required>
-              <option value="" disabled selected>Seleccione resultado...</option>
-              <option value="Aprobado">Aprobado</option>
-              <option value="Reprobado">Reprobado</option>
-            </select>
+          <div class="exam-result-preview">
+            <span class="preview-label">Resultado:</span>
+            <span class="preview-badge" id="preview-badge">Ingrese puntaje</span>
           </div>
-          <div class="form-group">
+          <div class="form-group" style="margin-top: 0.75rem;">
             <label for="exam-notes">Observaciones / Detalles</label>
             <input type="text" id="exam-notes" placeholder="Ej: Aprobó sin observaciones">
           </div>
@@ -230,6 +237,6 @@
 
   <!-- Supabase Client SDK -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="app.js?v=2.2"></script>
+  <script src="app.js?v=2.4"></script>
 </body>
 </html>

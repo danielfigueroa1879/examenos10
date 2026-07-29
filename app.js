@@ -513,6 +513,37 @@ function renderAll() {
   renderPublicPcs();
   renderAdminQueue();
   renderAdminPcs();
+  renderAdminFinished();
+}
+
+function renderAdminFinished() {
+  const container = document.getElementById("admin-finished-list");
+  if (!container) return;
+
+  const finished = state.guards.filter(g => g.status === "Finalizado");
+
+  if (finished.length === 0) {
+    container.innerHTML = `<p class="text-center text-muted" style="padding: 1rem;">Aún no hay exámenes finalizados.</p>`;
+    return;
+  }
+
+  // Newest first
+  const sorted = [...finished].reverse();
+
+  container.innerHTML = sorted.map(g => {
+    const scoreNum = parseInt(g.score, 10);
+    const isFail = !isNaN(scoreNum) && scoreNum < 60;
+    const scoreClass = isFail ? "score-fail-text" : "score-pass-text";
+    const badgeClass = isFail ? "badge-fail" : "badge-pass";
+    return `
+      <div class="finished-item">
+        <span class="finished-order">#${g.orderNum}</span>
+        <span class="finished-name">${g.nombres} ${g.apellidos}</span>
+        <span class="finished-score ${scoreClass}">${g.score}</span>
+        <span class="finished-result-badge ${badgeClass}">${g.result}</span>
+      </div>
+    `;
+  }).join("");
 }
 
 function renderStats() {
@@ -730,27 +761,60 @@ document.querySelectorAll(".btn-liberar").forEach(btn => {
   });
 });
 
+function updateResultPreview(scoreVal) {
+  const badge = document.getElementById("preview-badge");
+  const scoreInput = document.getElementById("exam-score");
+  if (!badge) return;
+
+  const score = parseInt(scoreVal, 10);
+
+  if (isNaN(score) || scoreVal === "") {
+    badge.textContent = "Ingrese puntaje";
+    badge.className = "preview-badge";
+    if (scoreInput) scoreInput.classList.remove("score-pass", "score-fail");
+    return;
+  }
+
+  if (score >= 60) {
+    badge.textContent = `APROBADO (${score}%)`;
+    badge.className = "preview-badge pass";
+    if (scoreInput) {
+      scoreInput.classList.remove("score-fail");
+      scoreInput.classList.add("score-pass");
+    }
+  } else {
+    badge.textContent = `REPROBADO (${score}%)`;
+    badge.className = "preview-badge fail";
+    if (scoreInput) {
+      scoreInput.classList.remove("score-pass");
+      scoreInput.classList.add("score-fail");
+    }
+  }
+}
+
 function openFinishExamModal(pcNum) {
   const config = state.computers[pcNum];
   if (config.status !== "Ocupado") return;
-  
+
   const guard = state.guards.find(g => g.id === config.guardId);
   if (!guard) return;
-  
+
   activePcForFinishing = pcNum;
   activeGuardForFinishing = guard;
-  
+
   const nameLabel = document.getElementById("finish-guard-name");
   if (nameLabel) nameLabel.innerText = `${guard.nombres} ${guard.apellidos}`;
-  
+
   const scoreInput = document.getElementById("exam-score");
-  const resultSelect = document.getElementById("exam-result");
   const notesInput = document.getElementById("exam-notes");
-  
-  if (scoreInput) scoreInput.value = "";
-  if (resultSelect) resultSelect.value = "";
+
+  if (scoreInput) {
+    scoreInput.value = "";
+    scoreInput.oninput = () => updateResultPreview(scoreInput.value);
+  }
   if (notesInput) notesInput.value = "";
-  
+  updateResultPreview("");
+
   const modal = document.getElementById("finish-exam-modal");
   if (modal) modal.classList.remove("hidden");
 }
@@ -765,12 +829,19 @@ if (finishExamForm) {
     if (!activeGuardForFinishing || !activePcForFinishing) return;
     
     const scoreVal = document.getElementById("exam-score").value;
-    const resultVal = document.getElementById("exam-result").value;
     const notesVal = document.getElementById("exam-notes").value;
-    
+    const score = parseInt(scoreVal, 10);
+
+    if (isNaN(score) || score < 0 || score > 100) {
+      alert("Ingrese un puntaje válido entre 0 y 100.");
+      return;
+    }
+
+    const resultVal = score >= 60 ? "Aprobado" : "Reprobado";
+
     // Guardar datos en el objeto del guardia
     activeGuardForFinishing.status = "Finalizado";
-    activeGuardForFinishing.score = scoreVal + "%";
+    activeGuardForFinishing.score = score + "%";
     activeGuardForFinishing.result = resultVal;
     activeGuardForFinishing.notes = notesVal || "Ninguna";
     
@@ -884,6 +955,9 @@ if (btnExportCsv) {
     // Generar filas de la tabla
     let tableRows = "";
     sortedGuards.forEach(g => {
+      const scoreNum = parseInt(g.score, 10);
+      const isFail = !isNaN(scoreNum) && scoreNum < 60;
+      const failStyle = isFail ? ' style="background-color:#FECACA;color:#B91C1C;font-weight:bold;"' : '';
       tableRows += `
         <tr>
           <td>${g.orderNum}</td>
@@ -895,8 +969,8 @@ if (btnExportCsv) {
           <td>${g.time}</td>
           <td>${g.status}</td>
           <td>${g.pcAssigned || 'N/A'}</td>
-          <td>${g.score || 'N/A'}</td>
-          <td>${g.result || 'N/A'}</td>
+          <td${failStyle}>${g.score || 'N/A'}</td>
+          <td${failStyle}>${g.result || 'N/A'}</td>
           <td>${g.notes || 'Ninguna'}</td>
         </tr>
       `;
