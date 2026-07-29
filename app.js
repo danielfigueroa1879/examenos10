@@ -55,7 +55,9 @@ const registroForm = document.getElementById("registro-form");
 const rutInput = document.getElementById("rut");
 const nombresInput = document.getElementById("nombres");
 const apellidosInput = document.getElementById("apellidos");
-const empresaInput = document.getElementById("empresa");
+const empresaSelect = document.getElementById("empresa-select");
+const empresaOtroGroup = document.getElementById("empresa-otro-group");
+const empresaOtroInput = document.getElementById("empresa-otro");
 
 const successOverlay = document.getElementById("success-overlay");
 const closeSuccessBtn = document.getElementById("close-success-btn");
@@ -207,17 +209,51 @@ function initRutFormatter() {
 }
 
 function initFormValidation() {
-  if (!nombresInput || !apellidosInput) return;
-  [nombresInput, apellidosInput].forEach(input => {
-    input.addEventListener("input", () => {
-      if (input.value.trim() !== "") {
-        input.classList.remove("invalid");
-        input.classList.add("valid");
+  if (nombresInput && apellidosInput) {
+    [nombresInput, apellidosInput].forEach(input => {
+      input.addEventListener("input", () => {
+        if (input.value.trim() !== "") {
+          input.classList.remove("invalid");
+          input.classList.add("valid");
+        } else {
+          input.classList.remove("valid");
+        }
+      });
+    });
+  }
+
+  // Event listener for training company select
+  if (empresaSelect && empresaOtroGroup && empresaOtroInput) {
+    empresaSelect.addEventListener("change", (e) => {
+      if (e.target.value === "") {
+        empresaSelect.classList.remove("valid");
+        empresaSelect.classList.add("invalid");
       } else {
-        input.classList.remove("valid");
+        empresaSelect.classList.remove("invalid");
+        empresaSelect.classList.add("valid");
+      }
+
+      if (e.target.value === "Otro") {
+        empresaOtroGroup.classList.remove("hidden");
+        empresaOtroInput.setAttribute("required", "true");
+        empresaOtroInput.focus();
+      } else {
+        empresaOtroGroup.classList.add("hidden");
+        empresaOtroInput.removeAttribute("required");
+        empresaOtroInput.value = "";
+        empresaOtroInput.classList.remove("invalid", "valid");
       }
     });
-  });
+
+    empresaOtroInput.addEventListener("input", () => {
+      if (empresaOtroInput.value.trim() !== "") {
+        empresaOtroInput.classList.remove("invalid");
+        empresaOtroInput.classList.add("valid");
+      } else {
+        empresaOtroInput.classList.remove("valid");
+      }
+    });
+  }
 }
 
 // FORM SUBMISSION (index.html)
@@ -228,7 +264,16 @@ if (registroForm) {
     const rutVal = rutInput.value.trim();
     const nombresVal = nombresInput.value.trim();
     const apellidosVal = apellidosInput.value.trim();
-    const empresaVal = empresaInput.value.trim();
+    
+    // Obtener valor de la empresa seleccionada
+    let empresaVal = "";
+    if (empresaSelect) {
+      if (empresaSelect.value === "Otro" && empresaOtroInput) {
+        empresaVal = empresaOtroInput.value.trim();
+      } else if (empresaSelect.value !== "") {
+        empresaVal = empresaSelect.value;
+      }
+    }
     
     let hasErrors = false;
     
@@ -246,6 +291,18 @@ if (registroForm) {
     
     if (apellidosVal === "") {
       apellidosInput.classList.add("invalid");
+      hasErrors = true;
+    }
+
+    // Validar si no seleccionó ninguna empresa
+    if (empresaSelect && empresaSelect.value === "") {
+      empresaSelect.classList.add("invalid");
+      hasErrors = true;
+    }
+
+    // Validar si seleccionó 'Otro' pero lo dejó vacío
+    if (empresaSelect && empresaSelect.value === "Otro" && empresaOtroInput && empresaOtroInput.value.trim() === "") {
+      empresaOtroInput.classList.add("invalid");
       hasErrors = true;
     }
     
@@ -278,6 +335,15 @@ if (registroForm) {
     rutInput.classList.remove("valid");
     nombresInput.classList.remove("valid");
     apellidosInput.classList.remove("valid");
+    if (empresaSelect) {
+      empresaSelect.classList.remove("valid", "invalid");
+    }
+    if (empresaOtroInput) {
+      empresaOtroInput.classList.remove("valid", "invalid");
+    }
+    if (empresaOtroGroup) {
+      empresaOtroGroup.classList.add("hidden");
+    }
     const succ = document.getElementById("rut-success");
     if (succ) succ.style.display = "none";
     
