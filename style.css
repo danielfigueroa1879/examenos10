@@ -85,7 +85,7 @@ body {
 
 .logo-text p {
   font-size: 0.75rem;
-  color: var(--accent-color);
+  color: #FFFFFF;
   font-weight: 500;
   letter-spacing: 0.05em;
   text-transform: uppercase;

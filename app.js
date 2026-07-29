@@ -1,5 +1,5 @@
 // CONFIGURATION & STATE
-const PIN_ADMIN = "8979";
+const PIN_ADMIN = "1234";
 
 let state = {
   guards: [], // Array of objects: { id, orderNum, nombres, apellidos, rut, empresa, time, status, pcAssigned }
