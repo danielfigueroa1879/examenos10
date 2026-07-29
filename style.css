@@ -54,7 +54,7 @@ body {
 }
 
 .header-container {
-  max-width: 1200px;
+  max-width: 1500px;
   height: 100%;
   margin: 0 auto;
   display: flex;
@@ -131,7 +131,7 @@ body {
 /* MAIN CONTENT CONTAINER */
 .main-content {
   flex: 1;
-  max-width: 1200px;
+  max-width: 1500px;
   width: 100%;
   margin: 0 auto;
   padding: 2rem 1.5rem;
@@ -835,11 +835,19 @@ body {
     padding: 0 1rem;
   }
 
-  .logo-text h1 {
-    font-size: 1rem;
+  .official-logo {
+    height: 44px;
   }
 
-  /* Reposition tabs navigation as a floating bottom bar for excellent mobile experience */
+  .logo-text h1 {
+    font-size: 0.95rem;
+  }
+  
+  .logo-text p {
+    font-size: 0.7rem;
+  }
+
+  /* Reposition tabs navigation dynamically based on tab counts */
   .nav-tabs {
     position: fixed;
     bottom: 0;
@@ -848,8 +856,8 @@ body {
     height: 64px;
     background-color: var(--primary-color);
     border-top: 2px solid var(--accent-color);
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    display: flex;
+    justify-content: stretch;
     gap: 0;
     padding: 0;
     box-shadow: 0 -4px 16px rgba(0,0,0,0.1);
@@ -857,6 +865,7 @@ body {
   }
 
   .tab-btn {
+    flex: 1;
     border-radius: 0;
     flex-direction: column;
     justify-content: center;
@@ -879,32 +888,81 @@ body {
   }
 
   .main-content {
-    padding: 1rem 0.75rem;
+    padding: 0.85rem 0.5rem;
   }
 
   .card {
-    padding: 1.25rem;
+    padding: 1.25rem 1rem;
     border-radius: 12px;
+    margin-bottom: 1.25rem;
   }
 
   .form-grid {
     gap: 1rem;
   }
 
+  /* Compact 2x2 grid of PCs on cell phones instead of giant vertical cards */
+  .computers-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .pc-card {
+    padding: 0.75rem;
+    border-radius: 10px;
+  }
+
+  .pc-header {
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.35rem;
+  }
+
+  .pc-title {
+    font-size: 0.75rem;
+  }
+
+  .pc-status {
+    font-size: 0.65rem;
+    padding: 0.15rem 0.4rem;
+  }
+
+  .pc-icon {
+    width: 32px;
+    height: 32px;
+  }
+
+  .pc-user {
+    font-size: 0.8rem;
+  }
+
+  /* Stats Row mobile optimization */
   .stats-row {
-    gap: 0.5rem;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.4rem;
+    margin-bottom: 1.25rem;
   }
 
   .stat-card {
-    padding: 0.75rem 0.5rem;
+    padding: 0.6rem 0.35rem;
+    border-radius: 8px;
   }
 
   .stat-num {
-    font-size: 1.35rem;
+    font-size: 1.25rem;
   }
 
   .stat-lbl {
-    font-size: 0.75rem;
+    font-size: 0.65rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Table padding optimizations for narrow viewports */
+  .data-table th, .data-table td {
+    padding: 0.75rem 0.5rem;
+    font-size: 0.8rem;
   }
 
   .admin-split-layout {
@@ -917,5 +975,40 @@ body {
 
   .footer {
     display: none; /* Hide footer on mobile because of bottom tab bar */
+  }
+
+  /* EXTRA SMALL DEVICES: e.g. iPhone SE (320px width) */
+  @media (max-width: 360px) {
+    .header-container {
+      padding: 0 0.5rem;
+    }
+    
+    .official-logo {
+      height: 38px;
+    }
+
+    .logo-text h1 {
+      font-size: 0.85rem;
+    }
+
+    .logo-text p {
+      font-size: 0.6rem;
+    }
+
+    .stat-num {
+      font-size: 1.1rem;
+    }
+
+    .stat-lbl {
+      font-size: 0.6rem;
+    }
+    
+    .ticket-number {
+      font-size: 1.85rem;
+    }
+    
+    .ticket-name {
+      font-size: 0.9rem;
+    }
   }
 }
