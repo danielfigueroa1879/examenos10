@@ -252,7 +252,10 @@ body {
   letter-spacing: 0.02em;
 }
 
-.form-group input {
+.form-group input,
+.form-group select {
+  width: 100%;
+  max-width: 100%;
   padding: 0.75rem 1rem;
   font-size: 1rem;
   border: 1.5px solid var(--border-color);
@@ -263,23 +266,27 @@ body {
   transition: var(--transition);
 }
 
-.form-group input:focus {
+.form-group input:focus,
+.form-group select:focus {
   border-color: var(--primary-light);
   background-color: #FFFFFF;
   box-shadow: 0 0 0 3px rgba(22, 101, 52, 0.15);
 }
 
 /* Validation styling */
-.form-group input.invalid {
+.form-group input.invalid,
+.form-group select.invalid {
   border-color: var(--danger);
   background-color: rgba(239, 68, 68, 0.02);
 }
 
-.form-group input.invalid:focus {
+.form-group input.invalid:focus,
+.form-group select.invalid:focus {
   box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
 }
 
-.form-group input.valid {
+.form-group input.valid,
+.form-group select.valid {
   border-color: var(--success);
   background-color: rgba(16, 185, 129, 0.02);
 }
@@ -833,10 +840,11 @@ body {
 
   .header-container {
     padding: 0 1rem;
+    justify-content: center; /* Centers the logo group on mobile screens */
   }
 
   .official-logo {
-    height: 44px;
+    height: 40px; /* Optimized logo height for mobile viewports */
   }
 
   .logo-text h1 {
@@ -844,7 +852,7 @@ body {
   }
   
   .logo-text p {
-    font-size: 0.7rem;
+    font-size: 0.65rem;
   }
 
   /* Reposition tabs navigation dynamically based on tab counts */
@@ -984,7 +992,7 @@ body {
     }
     
     .official-logo {
-      height: 38px;
+      height: 34px;
     }
 
     .logo-text h1 {
