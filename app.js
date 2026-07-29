@@ -513,37 +513,6 @@ function renderAll() {
   renderPublicPcs();
   renderAdminQueue();
   renderAdminPcs();
-  renderAdminFinished();
-}
-
-function renderAdminFinished() {
-  const container = document.getElementById("admin-finished-list");
-  if (!container) return;
-
-  const finished = state.guards.filter(g => g.status === "Finalizado");
-
-  if (finished.length === 0) {
-    container.innerHTML = `<p class="text-center text-muted" style="padding: 1rem;">Aún no hay exámenes finalizados.</p>`;
-    return;
-  }
-
-  // Newest first
-  const sorted = [...finished].reverse();
-
-  container.innerHTML = sorted.map(g => {
-    const scoreNum = parseInt(g.score, 10);
-    const isFail = !isNaN(scoreNum) && scoreNum < 60;
-    const scoreClass = isFail ? "score-fail-text" : "score-pass-text";
-    const badgeClass = isFail ? "badge-fail" : "badge-pass";
-    return `
-      <div class="finished-item">
-        <span class="finished-order">#${g.orderNum}</span>
-        <span class="finished-name">${g.nombres} ${g.apellidos}</span>
-        <span class="finished-score ${scoreClass}">${g.score}</span>
-        <span class="finished-result-badge ${badgeClass}">${g.result}</span>
-      </div>
-    `;
-  }).join("");
 }
 
 function renderStats() {
@@ -754,11 +723,12 @@ function renderAdminPcs() {
 let activePcForFinishing = null;
 let activeGuardForFinishing = null;
 
-document.querySelectorAll(".btn-liberar").forEach(btn => {
-  btn.addEventListener("click", (e) => {
-    const pcNum = e.target.getAttribute("data-pc");
-    openFinishExamModal(pcNum);
-  });
+// Delegación en document: sobrevive a re-renders y clicks en hijos del botón
+document.addEventListener("click", (e) => {
+  const btn = e.target.closest(".btn-liberar");
+  if (!btn) return;
+  const pcNum = btn.getAttribute("data-pc");
+  if (pcNum) openFinishExamModal(pcNum);
 });
 
 function updateResultPreview(scoreVal) {
