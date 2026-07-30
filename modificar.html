@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Modificar Guardias del Día - OS10 Coquimbo">
+
+  <meta name="theme-color" content="#1e3a8a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Admin OS10">
+  <link rel="apple-touch-icon" href="favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="96x96" href="favicon/favicon-96x96.png">
+  <link rel="icon" type="image/svg+xml" href="favicon/favicon.svg">
+  <link rel="shortcut icon" href="favicon/favicon.ico">
+  <link rel="manifest" href="favicon/site.webmanifest">
+
+  <title>Modificar Guardias - OS10 Coquimbo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css?v=2.8">
+</head>
+<body>
+
+  <!-- FIXED NAVBAR -->
+  <header class="header">
+    <div class="header-container">
+      <div class="logo-group">
+        <img src="logo-os10.webp" alt="Logo OS10 Coquimbo" class="official-logo">
+        <div class="logo-text">
+          <h1>OS10 Coquimbo</h1>
+          <p>Modificar Guardias del Día</p>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="main-content">
+
+    <!-- Admin Authentication Layer -->
+    <div id="admin-auth" class="card card-auth">
+      <div class="card-header text-center">
+        <svg class="lock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        <h2>Acceso Administrativo</h2>
+        <p>Ingrese su PIN para modificar los guardias del día.</p>
+      </div>
+      <form id="admin-login-form">
+        <div class="form-group">
+          <input type="password" id="admin-pin" placeholder=" " class="text-center" autocomplete="current-password" required>
+          <span class="error-msg" id="pin-error">PIN Incorrecto. Intente de nuevo.</span>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Ingresar</button>
+      </form>
+    </div>
+
+    <!-- Modificar Dashboard -->
+    <div id="admin-dashboard" class="hidden">
+
+      <!-- Top Bar -->
+      <div class="mod-topbar card">
+        <div class="mod-topbar-left">
+          <h2 id="mod-title">Modificar Guardias</h2>
+          <p id="mod-subtitle" class="text-muted">Cargando...</p>
+        </div>
+        <div class="mod-topbar-right">
+          <input type="date" id="admin-date-picker" class="mod-date-picker">
+          <button id="btn-volver" class="btn btn-outline btn-sm">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+            Volver
+          </button>
+        </div>
+      </div>
+
+      <!-- Stats Summary -->
+      <div class="stats-row" style="margin-bottom: 1.25rem;">
+        <div class="stat-card">
+          <div class="stat-num" id="mod-stat-total">0</div>
+          <div class="stat-lbl">Total del Día</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-num" id="mod-stat-finalizados">0</div>
+          <div class="stat-lbl">Finalizados</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-num" id="mod-stat-espera">0</div>
+          <div class="stat-lbl">En Espera / Examen</div>
+        </div>
+      </div>
+
+      <!-- Search bar -->
+      <div class="mod-search-bar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="search-icon"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+        <input type="text" id="mod-search" placeholder="Buscar por nombre, RUT, empresa...">
+      </div>
+
+      <!-- PC Table View (desktop) -->
+      <div id="mod-table-wrap" class="mod-table-wrap">
+        <table class="mod-table">
+          <thead>
+            <tr>
+              <th style="width: 60px;">N°</th>
+              <th>Nombres</th>
+              <th>Apellidos</th>
+              <th>RUT</th>
+              <th>Teléfono</th>
+              <th>Empresa</th>
+              <th style="width: 90px;">Ingreso</th>
+              <th>Estado</th>
+              <th style="width: 80px;">Puntaje</th>
+              <th style="width: 180px;">Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="mod-table-tbody"></tbody>
+        </table>
+      </div>
+
+      <!-- Mobile Cards Grid -->
+      <div id="mod-guards-grid" class="mod-guards-grid">
+        <!-- Cards injected here -->
+      </div>
+
+      <div id="mod-empty-state" class="mod-empty hidden">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M8 15h8M9 9h.01M15 9h.01"/></svg>
+        <h3>Sin registros</h3>
+        <p>No hay guardias registrados para esta fecha.</p>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- POPUP MODAL FOR EDITING GUARD DETAILS (reused structure from admin.html) -->
+  <div id="edit-guard-modal" class="overlay hidden">
+    <div class="card card-modal animate-pop" style="border-top: 5px solid var(--accent-color, #D4AF37);">
+      <div class="card-header">
+        <h3>Editar Datos del Guardia</h3>
+        <p>Modifique los datos registrados del guardia.</p>
+      </div>
+      <form id="edit-guard-form">
+        <input type="hidden" id="edit-guard-id">
+        <div class="form-grid mod-form-grid">
+          <div class="form-group">
+            <label for="edit-nombres">Nombres</label>
+            <input type="text" id="edit-nombres" required>
+          </div>
+          <div class="form-group">
+            <label for="edit-apellidos">Apellidos</label>
+            <input type="text" id="edit-apellidos" required>
+          </div>
+          <div class="form-group">
+            <label for="edit-rut">RUT</label>
+            <input type="text" id="edit-rut" required>
+          </div>
+          <div class="form-group">
+            <label for="edit-telefono">Teléfono</label>
+            <input type="text" id="edit-telefono" required>
+          </div>
+          <div class="form-group full-col">
+            <label for="edit-empresa">Empresa de Capacitación / OTEC</label>
+            <input type="text" id="edit-empresa" required>
+          </div>
+          <div class="form-group">
+            <label for="edit-status">Estado</label>
+            <select id="edit-status" required>
+              <option value="En Espera">En Espera</option>
+              <option value="En Examen">En Examen</option>
+              <option value="Finalizado">Finalizado</option>
+            </select>
+          </div>
+          <div class="form-group" id="edit-pc-group">
+            <label for="edit-pc">PC Asignado</label>
+            <select id="edit-pc">
+              <option value="">Ninguno</option>
+              <option value="1">PC 1</option>
+              <option value="2">PC 2</option>
+              <option value="3">PC 3</option>
+              <option value="4">PC 4</option>
+            </select>
+          </div>
+          <div class="form-group full-col" id="edit-score-group">
+            <label for="edit-score">Puntaje Examen (%)</label>
+            <input type="number" id="edit-score" min="0" max="100" step="0.1" placeholder="Ej: 85.5">
+          </div>
+          <div class="form-group full-col" id="edit-notes-group">
+            <label for="edit-notes">Observaciones</label>
+            <input type="text" id="edit-notes">
+          </div>
+        </div>
+        <div class="flex-end gap-2 mod-form-actions">
+          <button type="button" id="btn-cancel-edit" class="btn btn-secondary">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <footer class="footer" style="margin-top: 4rem;">
+    <div class="container text-center">
+      <p>&copy; 2026 Oficina OS10 Coquimbo - Carabineros de Chile. Todos los derechos reservados.</p>
+    </div>
+  </footer>
+
+  <!-- Supabase Client SDK -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <!-- Set selectedDate before app.js loads so state loads for the URL date -->
+  <script>
+    (function() {
+      const params = new URLSearchParams(window.location.search);
+      const urlDate = params.get("date");
+      if (urlDate && /^\d{4}-\d{2}-\d{2}$/.test(urlDate)) {
+        window.__initialSelectedDate = urlDate;
+      }
+    })();
+  </script>
+
+  <script src="app.js?v=2.6"></script>
+
+  <!-- Page-specific rendering for modificar view -->
+  <script>
+    (function() {
+      // Override selectedDate right after app.js initializes it
+      if (window.__initialSelectedDate) {
+        selectedDate = window.__initialSelectedDate;
+      }
+
+      const $ = (id) => document.getElementById(id);
+
+      function fmtDateLarge(dateStr) {
+        try {
+          const [y, m, d] = dateStr.split("-").map(Number);
+          const dt = new Date(y, m - 1, d);
+          return dt.toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+        } catch (e) {
+          return dateStr;
+        }
+      }
+
+      function statusBadge(guard) {
+        if (guard.status === "En Espera") {
+          return `<span class="badge badge-primary">En Espera</span>`;
+        }
+        if (guard.status === "En Examen") {
+          return `<span class="badge badge-warning">PC ${guard.pcAssigned || '?'}</span>`;
+        }
+        if (guard.status === "Finalizado") {
+          let scoreNum = guard.scoreVal;
+          if (scoreNum === undefined || scoreNum === null || isNaN(scoreNum)) {
+            if (guard.score) {
+              scoreNum = parseFloat(String(guard.score).replace('%', '').replace(',', '.'));
+            }
+          }
+          let pass;
+          if (guard.result === "Aprobado") pass = true;
+          else if (guard.result === "Reprobado") pass = false;
+          else pass = !isNaN(scoreNum) && scoreNum >= 60;
+          return `<span class="badge ${pass ? 'badge-success' : 'badge-danger'}" style="background-color:${pass ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)'};color:${pass ? 'var(--success)' : 'var(--danger)'};">${pass ? 'Aprobado' : 'Reprobado'} ${guard.score || ''}</span>`;
+        }
+        return `<span class="badge">${guard.status || 'N/A'}</span>`;
+      }
+
+      function escapeHtml(s) {
+        if (s === null || s === undefined) return '';
+        return String(s)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+      }
+
+      let currentFilter = "";
+
+      function parseGuardTs(g) {
+        if (g.id && g.id.startsWith('g_')) {
+          const ts = parseInt(g.id.replace('g_', ''), 10);
+          if (!isNaN(ts)) return ts;
+        }
+        return 0;
+      }
+
+      function attachRowActions(root) {
+        root.querySelectorAll(".mod-btn-edit").forEach(btn => {
+          btn.addEventListener("click", (e) => {
+            const id = e.currentTarget.getAttribute("data-id");
+            if (typeof openEditGuardModal === "function") openEditGuardModal(id);
+          });
+        });
+        root.querySelectorAll(".mod-btn-delete").forEach(btn => {
+          btn.addEventListener("click", (e) => {
+            const id = e.currentTarget.getAttribute("data-id");
+            if (typeof deleteGuard === "function") deleteGuard(id);
+          });
+        });
+      }
+
+      function renderModificar() {
+        const title = $("mod-title");
+        const subtitle = $("mod-subtitle");
+        const grid = $("mod-guards-grid");
+        const tbody = $("mod-table-tbody");
+        const tableWrap = $("mod-table-wrap");
+        const empty = $("mod-empty-state");
+        if (!grid || !tbody) return;
+
+        const dailyGuards = (state.guards || []).filter(g => getGuardDate(g) === selectedDate);
+        const totalCount = dailyGuards.length;
+        const finalizados = dailyGuards.filter(g => g.status === "Finalizado").length;
+        const espera = dailyGuards.filter(g => g.status === "En Espera" || g.status === "En Examen").length;
+
+        $("mod-stat-total").innerText = totalCount;
+        $("mod-stat-finalizados").innerText = finalizados;
+        $("mod-stat-espera").innerText = espera;
+
+        if (title) title.innerText = "Guardias Registrados";
+        if (subtitle) subtitle.innerText = fmtDateLarge(selectedDate);
+
+        // Sort by arrival order (orderNum first, then timestamp as fallback)
+        const sortedAll = [...dailyGuards].sort((a, b) => {
+          const oa = (a.orderNum || '').padStart(5, '0');
+          const ob = (b.orderNum || '').padStart(5, '0');
+          if (oa !== ob) return oa.localeCompare(ob);
+          return parseGuardTs(a) - parseGuardTs(b);
+        });
+
+        // Build daily-count map (1..N based on full daily arrival order, independent of search)
+        const dailyIndexById = new Map();
+        sortedAll.forEach((g, i) => dailyIndexById.set(g.id, i + 1));
+
+        // Apply search filter
+        const q = (currentFilter || "").trim().toLowerCase();
+        let filtered = sortedAll;
+        if (q) {
+          filtered = sortedAll.filter(g =>
+            (g.nombres || '').toLowerCase().includes(q) ||
+            (g.apellidos || '').toLowerCase().includes(q) ||
+            (g.rut || '').toLowerCase().includes(q) ||
+            (g.empresa || '').toLowerCase().includes(q) ||
+            (g.telefono || '').toLowerCase().includes(q)
+          );
+        }
+
+        grid.innerHTML = "";
+        tbody.innerHTML = "";
+
+        if (filtered.length === 0) {
+          empty.classList.remove("hidden");
+          if (tableWrap) tableWrap.classList.add("hidden");
+          if (q) {
+            empty.querySelector("h3").innerText = "Sin coincidencias";
+            empty.querySelector("p").innerText = "Ningún guardia coincide con la búsqueda.";
+          } else {
+            empty.querySelector("h3").innerText = "Sin registros";
+            empty.querySelector("p").innerText = "No hay guardias registrados para esta fecha.";
+          }
+          return;
+        }
+        empty.classList.add("hidden");
+        if (tableWrap) tableWrap.classList.remove("hidden");
+
+        // === TABLE VIEW (Desktop) ===
+        filtered.forEach(guard => {
+          const num = dailyIndexById.get(guard.id);
+          const tr = document.createElement("tr");
+          const scoreCell = guard.status === "Finalizado"
+            ? `<span style="font-weight:600;">${escapeHtml(guard.score || 'N/A')}</span>`
+            : '<span class="text-muted">—</span>';
+          tr.innerHTML = `
+            <td class="mod-cell-num">${num}</td>
+            <td>${escapeHtml(guard.nombres)}</td>
+            <td>${escapeHtml(guard.apellidos)}</td>
+            <td>${escapeHtml(guard.rut)}</td>
+            <td>${escapeHtml(guard.telefono || 'N/A')}</td>
+            <td class="text-muted">${escapeHtml(guard.empresa)}</td>
+            <td>${escapeHtml(guard.time)}</td>
+            <td>${statusBadge(guard)}</td>
+            <td>${scoreCell}</td>
+            <td>
+              <div class="mod-table-actions">
+                <button class="btn btn-primary btn-sm mod-btn-edit" data-id="${escapeHtml(guard.id)}">Editar</button>
+                <button class="btn btn-danger btn-sm mod-btn-delete" data-id="${escapeHtml(guard.id)}">Eliminar</button>
+              </div>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+        attachRowActions(tbody);
+
+        // === CARD VIEW (Mobile) ===
+        filtered.forEach(guard => {
+          const num = dailyIndexById.get(guard.id);
+          const card = document.createElement("div");
+          card.className = "guard-card";
+          card.setAttribute("data-id", guard.id);
+
+          const passInfo = guard.status === "Finalizado"
+            ? `<div class="guard-info-row"><span class="lbl">Puntaje</span><span class="val">${escapeHtml(guard.score || 'N/A')} <small class="text-muted">(Nota: ${escapeHtml(guard.grade || 'N/A')})</small></span></div>`
+            : '';
+
+          const notesInfo = guard.notes
+            ? `<div class="guard-info-row"><span class="lbl">Obs.</span><span class="val">${escapeHtml(guard.notes)}</span></div>`
+            : '';
+
+          card.innerHTML = `
+            <div class="guard-card-header">
+              <div class="guard-order">${num}</div>
+              <div class="guard-name-block">
+                <div class="guard-name">${escapeHtml(guard.nombres)} ${escapeHtml(guard.apellidos)}</div>
+                <div class="guard-status-line">${statusBadge(guard)}</div>
+              </div>
+            </div>
+            <div class="guard-card-body">
+              <div class="guard-info-row"><span class="lbl">RUT</span><span class="val">${escapeHtml(guard.rut)}</span></div>
+              <div class="guard-info-row"><span class="lbl">Teléfono</span><span class="val">${escapeHtml(guard.telefono || 'N/A')}</span></div>
+              <div class="guard-info-row"><span class="lbl">Empresa</span><span class="val">${escapeHtml(guard.empresa)}</span></div>
+              <div class="guard-info-row"><span class="lbl">Ingreso</span><span class="val">${escapeHtml(guard.time)}</span></div>
+              ${passInfo}
+              ${notesInfo}
+            </div>
+            <div class="guard-card-actions">
+              <button class="btn btn-primary btn-sm mod-btn-edit" data-id="${escapeHtml(guard.id)}">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                Editar
+              </button>
+              <button class="btn btn-danger btn-sm mod-btn-delete" data-id="${escapeHtml(guard.id)}">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                Eliminar
+              </button>
+            </div>
+          `;
+          grid.appendChild(card);
+        });
+        attachRowActions(grid);
+      }
+
+      // Hook: extend renderAll so page updates on state changes
+      const _originalRenderAll = window.renderAll;
+      window.renderAll = function() {
+        if (typeof _originalRenderAll === "function") {
+          try { _originalRenderAll(); } catch (e) { console.error(e); }
+        }
+        renderModificar();
+      };
+
+      // Initial mount: wait for DOMContentLoaded (app.js triggers loadState there)
+      document.addEventListener("DOMContentLoaded", () => {
+        // Force loadState for the URL date and then render
+        setTimeout(async () => {
+          if (typeof loadState === "function") {
+            await loadState();
+          }
+          renderModificar();
+        }, 0);
+
+        // Date picker on this page
+        const datePicker = $("admin-date-picker");
+        if (datePicker) {
+          datePicker.value = selectedDate;
+          datePicker.addEventListener("change", async (e) => {
+            selectedDate = e.target.value;
+            const url = new URL(window.location.href);
+            url.searchParams.set("date", selectedDate);
+            window.history.replaceState({}, "", url.toString());
+            if (typeof loadState === "function") {
+              await loadState();
+            }
+            renderModificar();
+          });
+        }
+
+        // Search
+        const search = $("mod-search");
+        if (search) {
+          search.addEventListener("input", (e) => {
+            currentFilter = e.target.value;
+            renderModificar();
+          });
+        }
+
+        // Back button
+        const btnVolver = $("btn-volver");
+        if (btnVolver) {
+          btnVolver.addEventListener("click", () => {
+            window.close();
+            // Fallback if window.close blocked (browser policy)
+            setTimeout(() => {
+              window.location.href = "admin.html";
+            }, 100);
+          });
+        }
+      });
+    })();
+  </script>
+
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+          .then((reg) => console.log('Service Worker registrado con éxito:', reg.scope))
+          .catch((err) => console.error('Error al registrar Service Worker:', err));
+      });
+    }
+  </script>
+</body>
+</html>

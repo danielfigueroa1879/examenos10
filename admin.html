@@ -20,7 +20,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=2.6">
+  <link rel="stylesheet" href="style.css?v=2.7">
 </head>
 <body>
 
@@ -80,6 +80,10 @@
         </div>
         <div class="admin-actions">
           <input type="date" id="admin-date-picker" style="padding: 0.5rem 0.75rem; border: 1.5px solid var(--border-color, #cbd5e1); border-radius: 8px; font-family: inherit; font-size: 0.875rem; color: var(--text-main, #0f172a); background-color: #ffffff; cursor: pointer;">
+          <button id="btn-modificar-dia" class="btn btn-warning btn-sm" style="background-color: var(--accent-color, #D4AF37); color: #1E293B; border-color: var(--accent-color, #D4AF37); font-weight: 600;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            Modificar
+          </button>
           <button id="btn-export-csv" class="btn btn-secondary btn-sm">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
             Excel del Día
@@ -113,12 +117,13 @@
                   <th>Empresa</th>
                   <th>Teléfono</th>
                   <th>Hora Llegada</th>
+                  <th>Estado</th>
                   <th>Acciones</th>
                 </tr>
               </thead>
               <tbody id="admin-queue-tbody">
                 <tr>
-                  <td colspan="6" class="text-center text-muted">No hay personas esperando en la fila.</td>
+                  <td colspan="8" class="text-center text-muted">No hay personas registradas para este día.</td>
                 </tr>
               </tbody>
             </table>
@@ -244,6 +249,71 @@
         <div class="flex-end gap-2" style="margin-top: 1.5rem; display: flex; justify-content: flex-end;">
           <button type="button" id="btn-cancel-finish" class="btn btn-secondary">Cancelar</button>
           <button type="submit" class="btn btn-primary" style="background-color: var(--success); border-color: var(--success);">Guardar Resultados</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- POPUP MODAL FOR EDITING GUARD DETAILS -->
+  <div id="edit-guard-modal" class="overlay hidden">
+    <div class="card card-modal animate-pop" style="border-top: 5px solid var(--accent-color, #D4AF37);">
+      <div class="card-header">
+        <h3>Editar Datos del Guardia</h3>
+        <p>Modifique los datos registrados del guardia.</p>
+      </div>
+      <form id="edit-guard-form">
+        <input type="hidden" id="edit-guard-id">
+        <div class="form-grid" style="margin-top: 1rem; display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+          <div class="form-group">
+            <label for="edit-nombres">Nombres</label>
+            <input type="text" id="edit-nombres" required>
+          </div>
+          <div class="form-group">
+            <label for="edit-apellidos">Apellidos</label>
+            <input type="text" id="edit-apellidos" required>
+          </div>
+          <div class="form-group">
+            <label for="edit-rut">RUT</label>
+            <input type="text" id="edit-rut" required>
+          </div>
+          <div class="form-group">
+            <label for="edit-telefono">Teléfono</label>
+            <input type="text" id="edit-telefono" required>
+          </div>
+          <div class="form-group" style="grid-column: span 2;">
+            <label for="edit-empresa">Empresa de Capacitación / OTEC</label>
+            <input type="text" id="edit-empresa" required>
+          </div>
+          <div class="form-group">
+            <label for="edit-status">Estado</label>
+            <select id="edit-status" required>
+              <option value="En Espera">En Espera</option>
+              <option value="En Examen">En Examen</option>
+              <option value="Finalizado">Finalizado</option>
+            </select>
+          </div>
+          <div class="form-group" id="edit-pc-group">
+            <label for="edit-pc">PC Asignado</label>
+            <select id="edit-pc">
+              <option value="">Ninguno</option>
+              <option value="1">PC 1</option>
+              <option value="2">PC 2</option>
+              <option value="3">PC 3</option>
+              <option value="4">PC 4</option>
+            </select>
+          </div>
+          <div class="form-group" id="edit-score-group" style="grid-column: span 2;">
+            <label for="edit-score">Puntaje Examen (%)</label>
+            <input type="number" id="edit-score" min="0" max="100" step="0.1" placeholder="Ej: 85.5">
+          </div>
+          <div class="form-group" id="edit-notes-group" style="grid-column: span 2;">
+            <label for="edit-notes">Observaciones</label>
+            <input type="text" id="edit-notes">
+          </div>
+        </div>
+        <div class="flex-end gap-2" style="margin-top: 1.5rem; display: flex; justify-content: flex-end;">
+          <button type="button" id="btn-cancel-edit" class="btn btn-secondary">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Guardar Cambios</button>
         </div>
       </form>
     </div>
