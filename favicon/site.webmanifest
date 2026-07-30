@@ -16,7 +16,7 @@
       "purpose": "any maskable"
     }
   ],
-  "start_url": "../admin.html",
+  "start_url": "../pages/admin.html",
   "theme_color": "#1e3a8a",
   "background_color": "#0f172a",
   "display": "standalone",
