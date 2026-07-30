@@ -1131,22 +1131,32 @@ if (btnExportCsv) {
 }
 
 // RESET QUEUE FOR THE DAY
+// Limpia solo la fila activa (En Espera / En Examen) y libera los PCs.
+// Los registros Finalizados se conservan como historial del día.
+// Requiere el PIN de admin para ejecutarse.
 if (btnResetQueue) {
   btnResetQueue.addEventListener("click", () => {
-    const confirmReset = confirm("¿Está seguro de reiniciar la cola de hoy? Esto borrará permanentemente todos los registros y liberará todos los computadores.");
-    if (confirmReset) {
-      state.guards = [];
-      state.computers = {
-        1: { status: "Disponible", guardId: null },
-        2: { status: "Disponible", guardId: null },
-        3: { status: "Disponible", guardId: null },
-        4: { status: "Disponible", guardId: null }
-      };
-      saveState();
-      renderAll();
-      
-      // Notify other tabs
-      localStorage.setItem("os10_sync_trigger", Date.now());
+    const pin = prompt("Ingrese el PIN de administrador para reiniciar la fila del día.\n\nSe limpiarán los guardias En Espera / En Examen y se liberarán los PCs.\nLos registros Finalizados se conservarán como historial.");
+    if (pin === null) return;
+    if (pin !== PIN_ADMIN) {
+      alert("PIN incorrecto. La fila no fue reiniciada.");
+      return;
     }
+
+    const confirmReset = confirm("¿Confirma reiniciar la fila del día? Los registros Finalizados se mantendrán como historial.");
+    if (!confirmReset) return;
+
+    state.guards = state.guards.filter(g => g.status === "Finalizado");
+    state.computers = {
+      1: { status: "Disponible", guardId: null },
+      2: { status: "Disponible", guardId: null },
+      3: { status: "Disponible", guardId: null },
+      4: { status: "Disponible", guardId: null }
+    };
+    saveState();
+    renderAll();
+
+    // Notify other tabs
+    localStorage.setItem("os10_sync_trigger", Date.now());
   });
 }
