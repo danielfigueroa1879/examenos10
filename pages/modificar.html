@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="../assets/css/style.css?v=2.8">
+  <link rel="stylesheet" href="../assets/css/style.css?v=2.9">
 </head>
 <body>
 
@@ -214,7 +214,7 @@
     })();
   </script>
 
-  <script src="../assets/js/app.js?v=2.8"></script>
+  <script src="../assets/js/app.js?v=2.9"></script>
 
   <!-- Page-specific rendering for modificar view -->
   <script>
@@ -477,15 +477,11 @@
           });
         }
 
-        // Back button
+        // Back button - navigate back to admin in the same tab
         const btnVolver = $("btn-volver");
         if (btnVolver) {
           btnVolver.addEventListener("click", () => {
-            window.close();
-            // Fallback if window.close blocked (browser policy)
-            setTimeout(() => {
-              window.location.href = "admin.html";
-            }, 100);
+            window.location.href = "admin.html";
           });
         }
       });
