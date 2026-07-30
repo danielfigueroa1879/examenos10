@@ -63,9 +63,23 @@ async function loadState() {
     datePicker.value = selectedDate;
   }
 
-  const savedGuards = localStorage.getItem(`os10_guards_${selectedDate}`);
-  const savedPcs = localStorage.getItem(`os10_computers_${selectedDate}`);
+  let savedGuards = localStorage.getItem(`os10_guards_${selectedDate}`);
+  let savedPcs = localStorage.getItem(`os10_computers_${selectedDate}`);
   const savedAuth = sessionStorage.getItem("os10_admin_auth");
+
+  // Fallback to legacy LocalStorage keys (without suffix) for backward compatibility
+  if (!savedGuards && selectedDate === today) {
+    savedGuards = localStorage.getItem("os10_guards");
+    if (savedGuards) {
+      localStorage.setItem(`os10_guards_${selectedDate}`, savedGuards);
+    }
+  }
+  if (!savedPcs && selectedDate === today) {
+    savedPcs = localStorage.getItem("os10_computers");
+    if (savedPcs) {
+      localStorage.setItem(`os10_computers_${selectedDate}`, savedPcs);
+    }
+  }
 
   if (savedGuards) {
     state.guards = JSON.parse(savedGuards);
@@ -103,11 +117,28 @@ async function loadState() {
   // Cargar datos desde Supabase si el cliente está configurado
   if (supabaseClient) {
     try {
-      const { data, error } = await supabaseClient
+      let { data, error } = await supabaseClient
         .from('os10_sync')
         .select('state')
         .eq('id', getSupabaseId(selectedDate))
         .single();
+      
+      // Fallback/migración: Si no hay datos para hoy, intentar cargar la fila heredada (id = 1)
+      if ((error || !data || !data.state) && selectedDate === today) {
+        const legacyRes = await supabaseClient
+          .from('os10_sync')
+          .select('state')
+          .eq('id', 1)
+          .single();
+        if (!legacyRes.error && legacyRes.data && legacyRes.data.state) {
+          data = legacyRes.data;
+          error = null;
+          // Guardar inmediatamente en la base de datos con el nuevo ID del día para migrar
+          await supabaseClient
+            .from('os10_sync')
+            .upsert({ id: getSupabaseId(selectedDate), state: data.state });
+        }
+      }
         
       if (!error && data && data.state) {
         state.guards = data.state.guards || [];
