@@ -70,12 +70,12 @@ body {
 }
 
 .official-logo {
-  height: 62px;
-  width: 62px;
+  height: 60px;
+  width: auto;
   object-fit: contain;
   background-color: #FFFFFF;
-  border: 3px solid #FFFFFF;
-  border-radius: 50%;
+  border: 3.5px solid #FFFFFF;
+  border-radius: 8px;
   padding: 4px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
   filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
@@ -1314,7 +1314,7 @@ body {
 
 /* Elegant Golden Shining Ticket */
 .gold-ticket {
-  background: linear-gradient(135deg, #103a20, #0a2414) !important; /* Elegant deep green/gold contrast background */
+  background: linear-gradient(135deg, var(--primary-light), var(--primary-color)) !important; /* Original bright green background */
   border: 2.5px solid #D4AF37 !important; /* Elegant Gold Border */
   box-shadow: 0 10px 25px rgba(212, 175, 55, 0.35), 0 0 15px rgba(212, 175, 55, 0.15) !important;
   color: #FFFFFF !important;
