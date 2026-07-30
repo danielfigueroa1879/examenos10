@@ -936,12 +936,12 @@ function renderAdminQueue() {
   if (!adminQueueTbody) return;
   adminQueueTbody.innerHTML = "";
   
-  const dailyGuards = state.guards.filter(g => getGuardDate(g) === selectedDate);
+  const waitingGuards = state.guards.filter(g => g.status === "En Espera" && getGuardDate(g) === selectedDate);
   
-  if (dailyGuards.length === 0) {
+  if (waitingGuards.length === 0) {
     adminQueueTbody.innerHTML = `
       <tr>
-        <td colspan="8" class="text-center text-muted">No hay personas registradas para este día.</td>
+        <td colspan="7" class="text-center text-muted">No hay personas esperando en la fila.</td>
       </tr>
     `;
     return;
@@ -949,17 +949,7 @@ function renderAdminQueue() {
   
   const isToday = (selectedDate === getLocalDateString());
   
-  dailyGuards.forEach(guard => {
-    let statusBadge = "";
-    if (guard.status === "En Espera") {
-      statusBadge = `<span class="badge badge-primary">En Espera</span>`;
-    } else if (guard.status === "En Examen") {
-      statusBadge = `<span class="badge badge-warning">En PC ${guard.pcAssigned}</span>`;
-    } else if (guard.status === "Finalizado") {
-      const isPass = guard.scoreVal >= 60;
-      statusBadge = `<span class="badge ${isPass ? 'badge-success' : 'badge-danger'}" style="background-color: ${isPass ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)'}; color: ${isPass ? 'var(--success)' : 'var(--danger)'};">Finalizado (${guard.score})</span>`;
-    }
-
+  waitingGuards.forEach(guard => {
     const row = document.createElement("tr");
     row.innerHTML = `
       <td class="font-bold text-center">#${guard.orderNum}</td>
@@ -968,179 +958,24 @@ function renderAdminQueue() {
       <td class="text-muted">${guard.empresa}</td>
       <td>${guard.telefono || 'N/A'}</td>
       <td>${guard.time}</td>
-      <td>${statusBadge}</td>
       <td>
-        <div style="display: flex; gap: 0.25rem;">
-          ${guard.status === "En Espera" && isToday ? `
-          <button class="btn btn-primary btn-sm btn-llamar-pc" data-id="${guard.id}" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">
-            Asignar PC
-          </button>
-          ` : ''}
-          <button class="btn btn-secondary btn-sm btn-editar-guardia" data-id="${guard.id}" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; background-color: #f1f5f9; color: #475569; border: 1px solid #cbd5e1;">
-            Editar
-          </button>
-          <button class="btn btn-danger btn-sm btn-eliminar-guardia" data-id="${guard.id}" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; background-color: #fef2f2; color: #b91c1c; border: 1px solid #fee2e2;">
-            Eliminar
-          </button>
-        </div>
+        ${isToday ? `
+        <button class="btn btn-primary btn-sm btn-llamar-pc" data-id="${guard.id}">
+          Asignar Examen
+        </button>
+        ` : `<span class="text-muted">-</span>`}
       </td>
     `;
     
-    if (guard.status === "En Espera" && isToday) {
+    if (isToday) {
       row.querySelector(".btn-llamar-pc").addEventListener("click", (e) => {
         const id = e.target.getAttribute("data-id");
         openAssignmentModal(id);
       });
     }
-
-    row.querySelector(".btn-editar-guardia").addEventListener("click", (e) => {
-      const id = e.target.closest("button").getAttribute("data-id");
-      openEditGuardModal(id);
-    });
-
-    row.querySelector(".btn-eliminar-guardia").addEventListener("click", (e) => {
-      const id = e.target.closest("button").getAttribute("data-id");
-      deleteGuard(id);
-    });
     
     adminQueueTbody.appendChild(row);
   });
-}
-
-function openEditGuardModal(guardId) {
-  const guard = state.guards.find(g => g.id === guardId);
-  if (!guard) return;
-
-  document.getElementById("edit-guard-id").value = guard.id;
-  document.getElementById("edit-nombres").value = guard.nombres;
-  document.getElementById("edit-apellidos").value = guard.apellidos;
-  document.getElementById("edit-rut").value = guard.rut;
-  document.getElementById("edit-telefono").value = guard.telefono || "";
-  document.getElementById("edit-empresa").value = guard.empresa;
-  document.getElementById("edit-status").value = guard.status;
-  document.getElementById("edit-pc").value = guard.pcAssigned || "";
-  document.getElementById("edit-score").value = guard.scoreVal !== undefined ? guard.scoreVal : (guard.score ? parseFloat(guard.score) : "");
-  document.getElementById("edit-notes").value = guard.notes || "Ninguna";
-
-  // Hide/Show score group based on status selection
-  const statusSelect = document.getElementById("edit-status");
-  const scoreGroup = document.getElementById("edit-score-group");
-  const notesGroup = document.getElementById("edit-notes-group");
-  const pcGroup = document.getElementById("edit-pc-group");
-
-  const toggleGroups = () => {
-    const val = statusSelect.value;
-    if (val === "Finalizado") {
-      scoreGroup.style.display = "block";
-      notesGroup.style.display = "block";
-      pcGroup.style.display = "block";
-    } else if (val === "En Examen") {
-      scoreGroup.style.display = "none";
-      notesGroup.style.display = "none";
-      pcGroup.style.display = "block";
-    } else {
-      scoreGroup.style.display = "none";
-      notesGroup.style.display = "none";
-      pcGroup.style.display = "none";
-    }
-  };
-
-  statusSelect.onchange = toggleGroups;
-  toggleGroups();
-
-  const modal = document.getElementById("edit-guard-modal");
-  if (modal) modal.classList.remove("hidden");
-}
-
-// Save Edit Guard Handler
-const editGuardForm = document.getElementById("edit-guard-form");
-const btnCancelEdit = document.getElementById("btn-cancel-edit");
-
-if (editGuardForm) {
-  editGuardForm.addEventListener("submit", (e) => {
-    e.preventDefault();
-    const id = document.getElementById("edit-guard-id").value;
-    const guard = state.guards.find(g => g.id === id);
-    if (!guard) return;
-
-    guard.nombres = document.getElementById("edit-nombres").value.trim();
-    guard.apellidos = document.getElementById("edit-apellidos").value.trim();
-    guard.rut = document.getElementById("edit-rut").value.trim();
-    guard.telefono = document.getElementById("edit-telefono").value.trim();
-    guard.empresa = document.getElementById("edit-empresa").value.trim();
-    
-    const prevStatus = guard.status;
-    const prevPc = guard.pcAssigned;
-    
-    guard.status = document.getElementById("edit-status").value;
-    guard.pcAssigned = document.getElementById("edit-pc").value || null;
-
-    if (guard.status === "Finalizado") {
-      const scoreRaw = document.getElementById("edit-score").value;
-      const scoreFloat = parseFloat(scoreRaw.replace(',', '.'));
-      if (!isNaN(scoreFloat) && scoreFloat >= 0 && scoreFloat <= 100) {
-        guard.scoreVal = scoreFloat;
-        guard.score = scoreRaw.replace('.', ',') + "%";
-        guard.grade = calculateChileanGrade(scoreFloat);
-        guard.result = scoreFloat >= 60 ? "Aprobado" : "Reprobado";
-      }
-      guard.notes = document.getElementById("edit-notes").value.trim() || "Ninguna";
-    } else {
-      delete guard.scoreVal;
-      delete guard.score;
-      delete guard.grade;
-      delete guard.result;
-      delete guard.notes;
-    }
-
-    // Adjust PC assignments if pc changed
-    if (prevStatus === "En Examen" && prevPc) {
-      state.computers[prevPc] = { status: "Disponible", guardId: null };
-    }
-    if (guard.status === "En Examen" && guard.pcAssigned) {
-      state.computers[guard.pcAssigned] = { status: "Ocupado", guardId: guard.id };
-    }
-
-    upsertToAllGuards(guard);
-    saveState();
-    renderAll();
-
-    const modal = document.getElementById("edit-guard-modal");
-    if (modal) modal.classList.add("hidden");
-    localStorage.setItem("os10_sync_trigger", Date.now());
-  });
-}
-
-if (btnCancelEdit) {
-  btnCancelEdit.addEventListener("click", () => {
-    const modal = document.getElementById("edit-guard-modal");
-    if (modal) modal.classList.add("hidden");
-  });
-}
-
-// Delete Guard Handler
-function deleteGuard(guardId) {
-  if (confirm("¿Está seguro que desea eliminar a este guardia del listado de hoy? Esto también liberará su PC si está rindiendo examen.")) {
-    const index = state.guards.findIndex(g => g.id === guardId);
-    if (index === -1) return;
-
-    const guard = state.guards[index];
-    if (guard.status === "En Examen" && guard.pcAssigned) {
-      state.computers[guard.pcAssigned] = { status: "Disponible", guardId: null };
-    }
-
-    state.guards.splice(index, 1);
-    
-    // Also remove from allGuards consolidated list if necessary
-    const allIndex = state.allGuards.findIndex(g => g.id === guardId);
-    if (allIndex !== -1) {
-      state.allGuards.splice(allIndex, 1);
-    }
-
-    saveState();
-    renderAll();
-    localStorage.setItem("os10_sync_trigger", Date.now());
-  }
 }
 
 function renderAdminPcs() {
@@ -1391,37 +1226,27 @@ function generateExcelBlob(guardsList, sheetName = "Reporte OS10") {
   const sorted = [...guardsList].sort((a, b) => a.orderNum.localeCompare(b.orderNum));
   
   let tableRows = "";
-  sorted.forEach((g, index) => {
+  sorted.forEach(g => {
     const scoreNum = parseFloat(g.scoreVal || (g.score ? g.score.replace('%', '').replace(',', '.') : '0'));
-    const isFinalized = g.status === "Finalizado";
+    const isFail = !isNaN(scoreNum) && scoreNum < 60 && g.status === "Finalizado";
+    const failStyle = isFail ? ' style="background-color:#FECACA;color:#B91C1C;font-weight:bold;font-family:\'Segoe UI\', Arial, sans-serif;font-size:10pt;text-align:center;border:1px solid #cccccc;padding:8px;"' : ' style="font-family:\'Segoe UI\', Arial, sans-serif;font-size:10pt;text-align:center;border:1px solid #cccccc;padding:8px;"';
     const cellStyle = ' style="font-family:\'Segoe UI\', Arial, sans-serif;font-size:10pt;text-align:center;border:1px solid #cccccc;padding:8px;"';
-    
-    // Bold score styling: Green if >= 60, Red if < 60
-    let scoreStyle = cellStyle;
-    if (isFinalized && !isNaN(scoreNum)) {
-      if (scoreNum >= 60) {
-        scoreStyle = ' style="font-family:\'Segoe UI\', Arial, sans-serif;font-size:10pt;text-align:center;border:1px solid #cccccc;padding:8px;font-weight:bold;color:#15803D;background-color:#DCFCE7;"';
-      } else {
-        scoreStyle = ' style="font-family:\'Segoe UI\', Arial, sans-serif;font-size:10pt;text-align:center;border:1px solid #cccccc;padding:8px;font-weight:bold;color:#B91C1C;background-color:#FEE2E2;"';
-      }
-    }
     
     tableRows += `
       <tr>
-        <td${cellStyle}>${g.time}</td>
-        <td${cellStyle} style="font-weight:bold;">${index + 1}</td>
-        <td${cellStyle}>#${g.orderNum}</td>
+        <td${cellStyle}>${g.orderNum}</td>
         <td${cellStyle}>${g.nombres}</td>
         <td${cellStyle}>${g.apellidos}</td>
         <td${cellStyle}>${g.rut}</td>
         <td${cellStyle}>${g.telefono || 'N/A'}</td>
         <td${cellStyle}>${g.empresa}</td>
+        <td${cellStyle}>${g.time}</td>
         <td${cellStyle}>${g.examTime || 'N/A'}</td>
         <td${cellStyle}>${g.status}</td>
         <td${cellStyle}>${g.pcAssigned || 'N/A'}</td>
-        <td${scoreStyle}>${g.score || 'N/A'}</td>
-        <td${scoreStyle}>${g.grade || 'N/A'}</td>
-        <td${scoreStyle}>${g.result || 'N/A'}</td>
+        <td${failStyle}>${g.score || 'N/A'}</td>
+        <td${failStyle}>${g.grade || 'N/A'}</td>
+        <td${failStyle}>${g.result || 'N/A'}</td>
         <td${cellStyle}>${g.notes || 'Ninguna'}</td>
       </tr>
     `;
@@ -1453,14 +1278,13 @@ function generateExcelBlob(guardsList, sheetName = "Reporte OS10") {
       <table>
         <thead>
           <tr>
-            <th${thStyle}>Hora Llegada</th>
-            <th${thStyle}>N°</th>
             <th${thStyle}>N° Orden</th>
             <th${thStyle}>Nombres</th>
             <th${thStyle}>Apellidos</th>
             <th${thStyle}>RUT</th>
             <th${thStyle}>Teléfono</th>
             <th${thStyle}>Empresa</th>
+            <th${thStyle}>Hora Llegada</th>
             <th${thStyle}>Hora Examen</th>
             <th${thStyle}>Estado</th>
             <th${thStyle}>PC Asignado</th>
@@ -1504,88 +1328,15 @@ if (btnExportCsv) {
   });
 }
 
-// EXPORTAR BASE DE DATOS COMPLETA CONSOLIDADA (HISTÓRICO REAL DE TODOS LOS DIAS - DEDUPLICADO POR RUT)
+// EXPORTAR BASE DE DATOS COMPLETA CONSOLIDADA
 if (btnExportConsolidated) {
-  btnExportConsolidated.addEventListener("click", async () => {
-    let mergedMap = new Map();
-
-    const addOrMergeGuard = (g) => {
-      if (!g.rut) return;
-      const rutKey = cleanRut(g.rut);
-      if (mergedMap.has(rutKey)) {
-        const existing = mergedMap.get(rutKey);
-        // Si el nuevo registro es "Finalizado" o tiene más datos, preferirlo
-        const existingIsFinalized = existing.status === "Finalizado";
-        const newIsFinalized = g.status === "Finalizado";
-        if (!existingIsFinalized && newIsFinalized) {
-          mergedMap.set(rutKey, g);
-        } else if (existingIsFinalized && !newIsFinalized) {
-          // Mantener existente
-        } else {
-          // Si ambos tienen el mismo estado, comparar marcas de tiempo en el ID para conservar el más nuevo
-          const existingTs = existing.id && existing.id.startsWith('g_') ? parseInt(existing.id.replace('g_', ''), 10) : 0;
-          const newTs = g.id && g.id.startsWith('g_') ? parseInt(g.id.replace('g_', ''), 10) : 0;
-          if (newTs > existingTs) {
-            mergedMap.set(rutKey, g);
-          }
-        }
-      } else {
-        mergedMap.set(rutKey, g);
-      }
-    };
-
-    // 1. Cargar desde Supabase (si está configurado)
-    if (supabaseClient) {
-      try {
-        const { data, error } = await supabaseClient
-          .from('os10_sync')
-          .select('id, state');
-          
-        if (!error && data) {
-          data.forEach(row => {
-            // Filtrar filas de días reales (id es YYYYMMDD, ej: de 8 dígitos y no 99999999)
-            if (row.id && row.id !== 1 && row.id !== 99999999 && row.id.toString().length === 8) {
-              if (row.state && row.state.guards) {
-                row.state.guards.forEach(g => {
-                  addOrMergeGuard(g);
-                });
-              }
-            }
-          });
-        }
-      } catch (e) {
-        console.log("Error al obtener histórico de Supabase:", e);
-      }
-    }
-
-    // 2. Combinar con localStorage (para asegurar datos locales offline)
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key && key.startsWith("os10_guards_")) {
-        try {
-          const guards = JSON.parse(localStorage.getItem(key)) || [];
-          guards.forEach(g => {
-            addOrMergeGuard(g);
-          });
-        } catch (e) {}
-      }
-    }
-
-    // 3. Fallback final con state.allGuards
-    if (state.allGuards) {
-      state.allGuards.forEach(g => {
-        addOrMergeGuard(g);
-      });
-    }
-
-    const allGuardsList = Array.from(mergedMap.values());
-
-    if (allGuardsList.length === 0) {
+  btnExportConsolidated.addEventListener("click", () => {
+    if (!state.allGuards || state.allGuards.length === 0) {
       alert("La base de datos consolidada no contiene registros.");
       return;
     }
-
-    const blob = generateExcelBlob(allGuardsList, "BD Consolidada");
+    
+    const blob = generateExcelBlob(state.allGuards, "BD Consolidada");
     const url = URL.createObjectURL(blob);
     
     const link = document.createElement("a");
