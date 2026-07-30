@@ -70,15 +70,10 @@ body {
 }
 
 .official-logo {
-  height: 70px;
+  height: 64px;
   width: auto;
   object-fit: contain;
-  background-color: #FFFFFF;
-  border: 3.5px solid #FFFFFF;
-  border-radius: 8px;
-  padding: 4px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
-  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.15));
   transition: transform 0.3s ease;
 }
 .official-logo:hover {
