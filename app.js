@@ -24,10 +24,47 @@ if (typeof supabase !== 'undefined' && SUPABASE_URL !== "YOUR_SUPABASE_URL") {
   supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 }
 
+//// HELPER FOR LOCAL DATE STRING YYYY-MM-DD
+function getLocalDateString() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+// FORMAT DATE TO SUPABASE INT ID (YYYYMMDD)
+function getSupabaseId(dateStr) {
+  return parseInt(dateStr.replace(/-/g, ''), 10);
+}
+
+let selectedDate = getLocalDateString();
+
 // LOAD FROM LOCAL STORAGE & SUPABASE ON START
 async function loadState() {
-  const savedGuards = localStorage.getItem("os10_guards");
-  const savedPcs = localStorage.getItem("os10_computers");
+  const today = getLocalDateString();
+  const lastStoredDate = localStorage.getItem("os10_last_date");
+  
+  // Automatical reset/initialization for new day
+  if (lastStoredDate && lastStoredDate !== today) {
+    localStorage.setItem(`os10_guards_${today}`, JSON.stringify([]));
+    localStorage.setItem(`os10_computers_${today}`, JSON.stringify({
+      1: { status: "Disponible", guardId: null },
+      2: { status: "Disponible", guardId: null },
+      3: { status: "Disponible", guardId: null },
+      4: { status: "Disponible", guardId: null }
+    }));
+    localStorage.setItem("os10_last_date", today);
+    selectedDate = today;
+  } else if (!lastStoredDate) {
+    localStorage.setItem("os10_last_date", today);
+  }
+
+  // Set the admin date picker value if it exists
+  const datePicker = document.getElementById("admin-date-picker");
+  if (datePicker && !datePicker.value) {
+    datePicker.value = selectedDate;
+  }
+
+  const savedGuards = localStorage.getItem(`os10_guards_${selectedDate}`);
+  const savedPcs = localStorage.getItem(`os10_computers_${selectedDate}`);
   const savedAuth = sessionStorage.getItem("os10_admin_auth");
 
   if (savedGuards) {
@@ -53,21 +90,31 @@ async function loadState() {
     state.isAdminAuthenticated = false;
   }
 
+  // Hide reset button if looking at a past day
+  const btnResetQueue = document.getElementById("btn-reset-queue");
+  if (btnResetQueue) {
+    if (selectedDate !== today) {
+      btnResetQueue.style.display = "none";
+    } else {
+      btnResetQueue.style.display = "inline-flex";
+    }
+  }
+
   // Cargar datos desde Supabase si el cliente está configurado
   if (supabaseClient) {
     try {
       const { data, error } = await supabaseClient
         .from('os10_sync')
         .select('state')
-        .eq('id', 1)
+        .eq('id', getSupabaseId(selectedDate))
         .single();
         
       if (!error && data && data.state) {
         state.guards = data.state.guards || [];
         state.computers = data.state.computers || state.computers;
         
-        localStorage.setItem("os10_guards", JSON.stringify(state.guards));
-        localStorage.setItem("os10_computers", JSON.stringify(state.computers));
+        localStorage.setItem(`os10_guards_${selectedDate}`, JSON.stringify(state.guards));
+        localStorage.setItem(`os10_computers_${selectedDate}`, JSON.stringify(state.computers));
         
         renderAll();
       }
@@ -79,14 +126,14 @@ async function loadState() {
 
 // SAVE TO LOCAL STORAGE & SUPABASE
 async function saveState() {
-  localStorage.setItem("os10_guards", JSON.stringify(state.guards));
-  localStorage.setItem("os10_computers", JSON.stringify(state.computers));
+  localStorage.setItem(`os10_guards_${selectedDate}`, JSON.stringify(state.guards));
+  localStorage.setItem(`os10_computers_${selectedDate}`, JSON.stringify(state.computers));
   
   if (supabaseClient) {
     try {
       const { error } = await supabaseClient
         .from('os10_sync')
-        .upsert({ id: 1, state: { guards: state.guards, computers: state.computers } });
+        .upsert({ id: getSupabaseId(selectedDate), state: { guards: state.guards, computers: state.computers } });
       if (error) console.log("Error al guardar en Supabase:", error);
     } catch (err) {
       console.log("Error al guardar en Supabase:", err);
@@ -108,8 +155,8 @@ function applyRemoteState(newState) {
 
   state.guards = JSON.parse(newGuardsJson);
   state.computers = JSON.parse(newComputersJson);
-  localStorage.setItem("os10_guards", newGuardsJson);
-  localStorage.setItem("os10_computers", newComputersJson);
+  localStorage.setItem(`os10_guards_${selectedDate}`, newGuardsJson);
+  localStorage.setItem(`os10_computers_${selectedDate}`, newComputersJson);
   renderAll();
 }
 
@@ -119,7 +166,7 @@ async function pollRemoteState() {
     const { data, error } = await supabaseClient
       .from('os10_sync')
       .select('state')
-      .eq('id', 1)
+      .eq('id', getSupabaseId(selectedDate))
       .single();
     if (!error && data && data.state) {
       applyRemoteState(data.state);
@@ -135,7 +182,7 @@ function initSupabaseSync() {
   supabaseClient
     .channel('os10-realtime-changes')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'os10_sync' }, payload => {
-      if (payload.new && payload.new.state) {
+      if (payload.new && payload.new.id === getSupabaseId(selectedDate) && payload.new.state) {
         applyRemoteState(payload.new.state);
       }
     })
@@ -204,10 +251,21 @@ document.addEventListener("DOMContentLoaded", () => {
   
   // Real-time synchronization fallback (local tabs)
   window.addEventListener("storage", (e) => {
-    if (e.key === "os10_guards" || e.key === "os10_computers") {
+    if (e.key === `os10_guards_${selectedDate}` || e.key === `os10_computers_${selectedDate}`) {
       loadState();
     }
   });
+
+  // Admin date picker event listener
+  const datePicker = document.getElementById("admin-date-picker");
+  if (datePicker) {
+    datePicker.value = selectedDate;
+    datePicker.addEventListener("change", (e) => {
+      selectedDate = e.target.value;
+      loadState();
+      renderAll();
+    });
+  }
 
   renderAll();
 });
@@ -666,6 +724,8 @@ function renderAdminQueue() {
     return;
   }
   
+  const isToday = (selectedDate === getLocalDateString());
+  
   waitingGuards.forEach(guard => {
     const row = document.createElement("tr");
     row.innerHTML = `
@@ -676,33 +736,38 @@ function renderAdminQueue() {
       <td>${guard.telefono || 'N/A'}</td>
       <td>${guard.time}</td>
       <td>
+        ${isToday ? `
         <button class="btn btn-primary btn-sm btn-llamar-pc" data-id="${guard.id}">
           Asignar Examen
         </button>
+        ` : `<span class="text-muted">-</span>`}
       </td>
     `;
     
-    row.querySelector(".btn-llamar-pc").addEventListener("click", (e) => {
-      const id = e.target.getAttribute("data-id");
-      openAssignmentModal(id);
-    });
+    if (isToday) {
+      row.querySelector(".btn-llamar-pc").addEventListener("click", (e) => {
+        const id = e.target.getAttribute("data-id");
+        openAssignmentModal(id);
+      });
+    }
     
     adminQueueTbody.appendChild(row);
   });
 }
 
 function renderAdminPcs() {
+  const isToday = (selectedDate === getLocalDateString());
   for (let i = 1; i <= 4; i++) {
     const monitorItem = document.getElementById(`admin-pc-monitor-${i}`);
     if (!monitorItem) continue;
     
-    const indicator = monitorItem.querySelector(".pc-indicator");
+    const indicatorEl = monitorItem.querySelector(".pc-indicator");
     const userP = monitorItem.querySelector(".admin-pc-user");
     const btnLiberar = monitorItem.querySelector(".btn-liberar");
     const config = state.computers[i];
     
     if (config.status === "Ocupado") {
-      if (indicator) indicator.className = "pc-indicator bg-occupied";
+      if (indicatorEl) indicatorEl.className = "pc-indicator bg-occupied";
       
       const assignedGuard = state.guards.find(g => g.id === config.guardId);
       if (assignedGuard && userP) {
@@ -710,9 +775,15 @@ function renderAdminPcs() {
       } else if (userP) {
         userP.innerText = "Ocupado";
       }
-      if (btnLiberar) btnLiberar.classList.remove("hidden");
+      if (btnLiberar) {
+        if (isToday) {
+          btnLiberar.classList.remove("hidden");
+        } else {
+          btnLiberar.classList.add("hidden");
+        }
+      }
     } else {
-      if (indicator) indicator.className = "pc-indicator bg-available";
+      if (indicatorEl) indicatorEl.className = "pc-indicator bg-available";
       if (userP) userP.innerText = "Disponible";
       if (btnLiberar) btnLiberar.classList.add("hidden");
     }
@@ -1020,8 +1091,7 @@ if (btnExportCsv) {
     const link = document.createElement("a");
     link.setAttribute("href", url);
     
-    const today = new Date().toISOString().slice(0,10);
-    link.setAttribute("download", `Reporte_Examenes_OS10_${today}.xls`);
+    link.setAttribute("download", `Reporte_Examenes_OS10_${selectedDate}.xls`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
