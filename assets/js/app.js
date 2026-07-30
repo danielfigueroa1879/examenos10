@@ -936,13 +936,17 @@ function showAdminLoginForm() {
 function renderAdminQueue() {
   if (!adminQueueTbody) return;
   adminQueueTbody.innerHTML = "";
-  
-  const dailyGuards = state.guards.filter(g => getGuardDate(g) === selectedDate);
-  
+
+  // Solo mostrar guardias activos (En Espera / En Examen) — los Finalizados se ocultan de la fila
+  const dailyGuards = state.guards.filter(g =>
+    getGuardDate(g) === selectedDate &&
+    (g.status === "En Espera" || g.status === "En Examen")
+  );
+
   if (dailyGuards.length === 0) {
     adminQueueTbody.innerHTML = `
       <tr>
-        <td colspan="8" class="text-center text-muted">No hay personas registradas para este día.</td>
+        <td colspan="8" class="text-center text-muted">No hay personas en la fila activa.</td>
       </tr>
     `;
     return;
@@ -1486,7 +1490,7 @@ if (btnModificarDia) {
   btnModificarDia.addEventListener("click", () => {
     const datePicker = document.getElementById("admin-date-picker");
     const dateVal = (datePicker && datePicker.value) ? datePicker.value : selectedDate;
-    window.open(`modificar.html?date=${encodeURIComponent(dateVal)}`, "_blank");
+    window.location.href = `modificar.html?date=${encodeURIComponent(dateVal)}`;
   });
 }
 
