@@ -1,1 +1,0 @@
-# examenos10
