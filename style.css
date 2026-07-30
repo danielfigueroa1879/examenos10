@@ -70,10 +70,15 @@ body {
 }
 
 .official-logo {
-  height: 64px;
+  height: 70px;
   width: auto;
   object-fit: contain;
-  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.15));
+  background-color: #FFFFFF;
+  border: 3.5px solid #FFFFFF;
+  border-radius: 8px;
+  padding: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
   transition: transform 0.3s ease;
 }
 .official-logo:hover {
@@ -1309,15 +1314,10 @@ body {
 
 /* Elegant Golden Shining Ticket */
 .gold-ticket {
-  background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 200" preserveAspectRatio="none"><defs><linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="%231E8C1E"/><stop offset="100%" stop-color="%23146314"/></linearGradient></defs><path d="M 15 3 L 385 3 A 12 12 0 0 0 397 15 L 397 85 A 15 15 0 0 0 397 115 L 397 185 A 12 12 0 0 0 385 197 L 15 197 A 12 12 0 0 0 3 185 L 3 115 A 15 15 0 0 0 3 85 L 3 15 A 12 12 0 0 0 15 3 Z" fill="url(%23bg)" stroke="%23D4AF37" stroke-width="3.5"/><path d="M 20 10 L 380 10 A 8 8 0 0 0 390 20 L 390 82 A 18 18 0 0 0 390 118 L 390 180 A 8 8 0 0 0 380 190 L 20 190 A 8 8 0 0 0 10 180 L 10 118 A 18 18 0 0 0 10 82 L 10 20 A 8 8 0 0 0 20 10 Z" fill="none" stroke="%23D4AF37" stroke-width="1.5" stroke-dasharray="5,4" opacity="0.8"/></svg>') no-repeat center center !important;
-  background-size: 100% 100% !important;
-  border: none !important;
-  box-shadow: 0 12px 28px rgba(0,0,0,0.15), 0 0 20px rgba(212, 175, 55, 0.25) !important;
+  background: linear-gradient(135deg, var(--primary-light), var(--primary-color)) !important; /* Original bright green background */
+  border: 2.5px solid #D4AF37 !important; /* Elegant Gold Border */
+  box-shadow: 0 10px 25px rgba(212, 175, 55, 0.35), 0 0 15px rgba(212, 175, 55, 0.15) !important;
   color: #FFFFFF !important;
-  padding: 0.9rem 1.75rem !important;
-  border-radius: 0 !important;
-  position: relative;
-  overflow: hidden;
 }
 
 .gold-ticket .ticket-number {
@@ -1327,11 +1327,37 @@ body {
 }
 
 .gold-ticket::before, .gold-ticket::after {
-  display: none !important;
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: 20px;
+  height: 20px;
+  background-color: var(--bg-card) !important;
+  border: 2.5px solid #D4AF37 !important;
+  border-radius: 50%;
+  z-index: 4;
 }
 
-.gold-ticket .ticket-inner-border {
-  display: none !important;
+.gold-ticket::before {
+  left: -11px;
+  transform: translateY(-50%);
+}
+
+.gold-ticket::after {
+  right: -11px;
+  transform: translateY(-50%);
+}
+
+.ticket-inner-border {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  right: 6px;
+  bottom: 6px;
+  border: 1px dashed rgba(212, 175, 55, 0.45);
+  border-radius: 8px;
+  pointer-events: none;
+  z-index: 1;
 }
 
 /* Elegant shining overlay */
@@ -1469,10 +1495,4 @@ body {
     box-shadow: 0 4px 22px rgba(16, 185, 129, 0.25);
     border-left-color: #047857;
   }
-}
-
-#btn-export-consolidated:hover {
-  background-color: #f1f5f9 !important;
-  color: #1e293b !important;
-  border-color: #94a3b8 !important;
 }
