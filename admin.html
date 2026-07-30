@@ -167,6 +167,20 @@
           </div>
         </div>
       </div>
+      
+      <!-- Base de Datos Consolidada card -->
+      <div class="card" style="margin-top: 1.5rem; border-top: 4px solid var(--accent-color, #D4AF37);">
+        <div class="card-header flex-between" style="flex-wrap: wrap; gap: 1rem;">
+          <div>
+            <h2>Base de Datos Histórica Consolidada</h2>
+            <p>Descarga la base de datos de todos los guardias registrados históricamente en el sistema.</p>
+          </div>
+          <button id="btn-export-consolidated" class="btn btn-primary" style="background-color: var(--primary-color); border-color: var(--primary-color); font-weight: 600;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon" style="margin-right: 0.5rem;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+            Descargar Base de Datos Completa
+          </button>
+        </div>
+      </div>
     </div>
   </main>
 
@@ -212,7 +226,7 @@
         <div class="form-grid" style="margin-top: 1rem;">
           <div class="form-group">
             <label for="exam-score">Puntaje Obtenido (%) — Aprueba con 60%</label>
-            <input type="number" id="exam-score" min="0" max="100" inputmode="numeric" placeholder="Ej: 85" required>
+            <input type="number" id="exam-score" min="0" max="100" step="0.1" inputmode="decimal" placeholder="Ej: 80.6" required>
           </div>
           <div class="exam-result-preview">
             <span class="preview-label">Resultado:</span>

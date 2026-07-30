@@ -9,6 +9,7 @@ let state = {
     3: { status: "Disponible", guardId: null },
     4: { status: "Disponible", guardId: null }
   },
+  allGuards: [], // Master historical record of all registered guards
   isAdminAuthenticated: false
 };
 
@@ -33,6 +34,36 @@ function getLocalDateString() {
 // FORMAT DATE TO SUPABASE INT ID (YYYYMMDD)
 function getSupabaseId(dateStr) {
   return parseInt(dateStr.replace(/-/g, ''), 10);
+}
+
+// CHILEAN GRADE SCALING (1.0 to 7.0, 60% requirement)
+function calculateChileanGrade(percent) {
+  if (isNaN(percent) || percent === null) return "N/A";
+  const roundedP = Math.round(percent);
+  let grade;
+  if (roundedP < 60) {
+    grade = 1.0 + (roundedP / 60) * 3.0;
+  } else {
+    grade = 4.0 + ((roundedP - 60) / 40) * 3.0;
+  }
+  // Ensure the grade is at least 1.0 and at most 7.0
+  grade = Math.max(1.0, Math.min(7.0, grade));
+  return grade.toFixed(1).replace('.', ',');
+}
+
+// UPSERT GUARD TO CONSOLIDATED LIST
+function upsertToAllGuards(guard) {
+  if (!state.allGuards) state.allGuards = [];
+  const index = state.allGuards.findIndex(g => g.id === guard.id);
+  
+  // Clone to avoid mutation side effects
+  const guardCopy = JSON.parse(JSON.stringify(guard));
+  
+  if (index !== -1) {
+    state.allGuards[index] = { ...state.allGuards[index], ...guardCopy };
+  } else {
+    state.allGuards.push(guardCopy);
+  }
 }
 
 let selectedDate = getLocalDateString();
@@ -66,6 +97,14 @@ async function loadState() {
   let savedGuards = localStorage.getItem(`os10_guards_${selectedDate}`);
   let savedPcs = localStorage.getItem(`os10_computers_${selectedDate}`);
   const savedAuth = sessionStorage.getItem("os10_admin_auth");
+  const savedAllGuards = localStorage.getItem("os10_all_guards");
+
+  // Load consolidated list
+  if (savedAllGuards) {
+    state.allGuards = JSON.parse(savedAllGuards);
+  } else {
+    state.allGuards = [];
+  }
 
   // Fallback to legacy LocalStorage keys (without suffix) for backward compatibility
   if (!savedGuards && selectedDate === today) {
@@ -117,6 +156,17 @@ async function loadState() {
   // Cargar datos desde Supabase si el cliente está configurado
   if (supabaseClient) {
     try {
+      // Cargar lista consolidada histórica (id = 99999999)
+      const { data: allData, error: allErr } = await supabaseClient
+        .from('os10_sync')
+        .select('state')
+        .eq('id', 99999999)
+        .single();
+      if (!allErr && allData && allData.state && allData.state.allGuards) {
+        state.allGuards = allData.state.allGuards;
+        localStorage.setItem("os10_all_guards", JSON.stringify(state.allGuards));
+      }
+
       let { data, error } = await supabaseClient
         .from('os10_sync')
         .select('state')
@@ -159,6 +209,7 @@ async function loadState() {
 async function saveState() {
   localStorage.setItem(`os10_guards_${selectedDate}`, JSON.stringify(state.guards));
   localStorage.setItem(`os10_computers_${selectedDate}`, JSON.stringify(state.computers));
+  localStorage.setItem("os10_all_guards", JSON.stringify(state.allGuards || []));
   
   if (supabaseClient) {
     try {
@@ -166,6 +217,12 @@ async function saveState() {
         .from('os10_sync')
         .upsert({ id: getSupabaseId(selectedDate), state: { guards: state.guards, computers: state.computers } });
       if (error) console.log("Error al guardar en Supabase:", error);
+
+      // Guardar lista consolidada (id = 99999999)
+      const { error: errorAll } = await supabaseClient
+        .from('os10_sync')
+        .upsert({ id: 99999999, state: { allGuards: state.allGuards } });
+      if (errorAll) console.log("Error al guardar lista consolidada en Supabase:", errorAll);
     } catch (err) {
       console.log("Error al guardar en Supabase:", err);
     }
@@ -261,6 +318,7 @@ const adminPinInput = document.getElementById("admin-pin");
 const pinError = document.getElementById("pin-error");
 const btnLogout = document.getElementById("btn-logout");
 const btnExportCsv = document.getElementById("btn-export-csv");
+const btnExportConsolidated = document.getElementById("btn-export-consolidated");
 const btnResetQueue = document.getElementById("btn-reset-queue");
 
 // Assignment modal elements
@@ -553,6 +611,7 @@ if (registroForm) {
     };
     
     state.guards.push(newGuard);
+    upsertToAllGuards(newGuard);
     saveState();
     
     // Reset Form
@@ -838,7 +897,8 @@ function updateResultPreview(scoreVal) {
   const scoreInput = document.getElementById("exam-score");
   if (!badge) return;
 
-  const score = parseInt(scoreVal, 10);
+  const cleanVal = scoreVal.replace(',', '.');
+  const score = parseFloat(cleanVal);
 
   if (isNaN(score) || scoreVal === "") {
     badge.textContent = "Ingrese puntaje";
@@ -847,15 +907,18 @@ function updateResultPreview(scoreVal) {
     return;
   }
 
-  if (score >= 60) {
-    badge.textContent = `APROBADO (${score}%)`;
+  const roundedScore = Math.round(score);
+  const grade = calculateChileanGrade(score);
+
+  if (roundedScore >= 60) {
+    badge.textContent = `APROBADO (${roundedScore}%) - Nota: ${grade}`;
     badge.className = "preview-badge pass";
     if (scoreInput) {
       scoreInput.classList.remove("score-fail");
       scoreInput.classList.add("score-pass");
     }
   } else {
-    badge.textContent = `REPROBADO (${score}%)`;
+    badge.textContent = `REPROBADO (${roundedScore}%) - Nota: ${grade}`;
     badge.className = "preview-badge fail";
     if (scoreInput) {
       scoreInput.classList.remove("score-pass");
@@ -900,28 +963,38 @@ if (finishExamForm) {
     
     if (!activeGuardForFinishing || !activePcForFinishing) return;
     
-    const scoreVal = document.getElementById("exam-score").value;
-    const notesVal = document.getElementById("exam-notes").value;
-    const score = parseInt(scoreVal, 10);
+    const scoreRaw = document.getElementById("exam-score").value;
+    const scoreVal = scoreRaw.replace(',', '.');
+    const scoreFloat = parseFloat(scoreVal);
 
-    if (isNaN(score) || score < 0 || score > 100) {
+    if (isNaN(scoreFloat) || scoreFloat < 0 || scoreFloat > 100) {
       alert("Ingrese un puntaje válido entre 0 y 100.");
       return;
     }
 
-    const resultVal = score >= 60 ? "Aprobado" : "Reprobado";
+    const roundedScore = Math.round(scoreFloat);
+    const resultVal = roundedScore >= 60 ? "Aprobado" : "Reprobado";
 
     // Guardar datos en el objeto del guardia
     activeGuardForFinishing.status = "Finalizado";
-    activeGuardForFinishing.score = score + "%";
+    activeGuardForFinishing.scoreVal = scoreFloat;
+    activeGuardForFinishing.score = scoreVal.replace('.', ',') + "%";
     activeGuardForFinishing.result = resultVal;
-    activeGuardForFinishing.notes = notesVal || "Ninguna";
+    activeGuardForFinishing.notes = notesVal => notesVal.trim() !== "" ? notesVal : "Ninguna";
     
+    const notesValInput = document.getElementById("exam-notes").value;
+    activeGuardForFinishing.notes = notesValInput || "Ninguna";
+    
+    // Guardar hora de examen y nota chilena equivalente
+    activeGuardForFinishing.examTime = new Date().toTimeString().split(' ')[0];
+    activeGuardForFinishing.grade = calculateChileanGrade(scoreFloat);
+
     // Liberar Computador
     const config = state.computers[activePcForFinishing];
     config.status = "Disponible";
     config.guardId = null;
     
+    upsertToAllGuards(activeGuardForFinishing);
     saveState();
     renderAll();
     
@@ -1002,6 +1075,7 @@ function assignGuardToPc(guardId, pcNum) {
   pc.status = "Ocupado";
   pc.guardId = guardId;
   
+  upsertToAllGuards(guard);
   saveState();
   renderAll();
   
@@ -1013,116 +1087,128 @@ function assignGuardToPc(guardId, pcNum) {
   localStorage.setItem("os10_sync_trigger", Date.now());
 }
 
-// EXPORTAR A EXCEL (Con formato de colores verde #146314, texto blanco y celdas centradas)
+// HELPER TO GENERATE EXCEL WITH INLINE STYLED HEADERS
+function generateExcelBlob(guardsList, sheetName = "Reporte OS10") {
+  // Sort guards by order number
+  const sorted = [...guardsList].sort((a, b) => a.orderNum.localeCompare(b.orderNum));
+  
+  let tableRows = "";
+  sorted.forEach(g => {
+    const scoreNum = parseFloat(g.scoreVal || (g.score ? g.score.replace('%', '').replace(',', '.') : '0'));
+    const isFail = !isNaN(scoreNum) && scoreNum < 60 && g.status === "Finalizado";
+    const failStyle = isFail ? ' style="background-color:#FECACA;color:#B91C1C;font-weight:bold;font-family:\'Segoe UI\', Arial, sans-serif;font-size:10pt;text-align:center;border:1px solid #cccccc;padding:8px;"' : ' style="font-family:\'Segoe UI\', Arial, sans-serif;font-size:10pt;text-align:center;border:1px solid #cccccc;padding:8px;"';
+    const cellStyle = ' style="font-family:\'Segoe UI\', Arial, sans-serif;font-size:10pt;text-align:center;border:1px solid #cccccc;padding:8px;"';
+    
+    tableRows += `
+      <tr>
+        <td${cellStyle}>${g.orderNum}</td>
+        <td${cellStyle}>${g.nombres}</td>
+        <td${cellStyle}>${g.apellidos}</td>
+        <td${cellStyle}>${g.rut}</td>
+        <td${cellStyle}>${g.telefono || 'N/A'}</td>
+        <td${cellStyle}>${g.empresa}</td>
+        <td${cellStyle}>${g.time}</td>
+        <td${cellStyle}>${g.examTime || 'N/A'}</td>
+        <td${cellStyle}>${g.status}</td>
+        <td${cellStyle}>${g.pcAssigned || 'N/A'}</td>
+        <td${failStyle}>${g.score || 'N/A'}</td>
+        <td${failStyle}>${g.grade || 'N/A'}</td>
+        <td${failStyle}>${g.result || 'N/A'}</td>
+        <td${cellStyle}>${g.notes || 'Ninguna'}</td>
+      </tr>
+    `;
+  });
+
+  // Direct inline green background and white text for header columns
+  const thStyle = ' style="background-color:#146314;color:#ffffff;font-family:\'Segoe UI\', Arial, sans-serif;font-size:11pt;font-weight:bold;text-align:center;border:1px solid #999999;padding:10px;text-transform:uppercase;"';
+
+  const excelTemplate = `
+    <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+    <head>
+      <meta charset="utf-8">
+      <!--[if gte mso 9]>
+      <xml>
+        <x:ExcelWorkbook>
+          <x:ExcelWorksheets>
+            <x:ExcelWorksheet>
+              <x:Name>${sheetName}</x:Name>
+              <x:WorksheetOptions>
+                <x:DisplayGridlines/>
+              </x:WorksheetOptions>
+            </x:ExcelWorksheet>
+          </x:ExcelWorksheets>
+        </x:ExcelWorkbook>
+      </xml>
+      <![endif]-->
+    </head>
+    <body>
+      <table>
+        <thead>
+          <tr>
+            <th${thStyle}>N° Orden</th>
+            <th${thStyle}>Nombres</th>
+            <th${thStyle}>Apellidos</th>
+            <th${thStyle}>RUT</th>
+            <th${thStyle}>Teléfono</th>
+            <th${thStyle}>Empresa</th>
+            <th${thStyle}>Hora Llegada</th>
+            <th${thStyle}>Hora Examen</th>
+            <th${thStyle}>Estado</th>
+            <th${thStyle}>PC Asignado</th>
+            <th${thStyle}>Puntaje</th>
+            <th${thStyle}>Nota</th>
+            <th${thStyle}>Resultado</th>
+            <th${thStyle}>Observaciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${tableRows}
+        </tbody>
+      </table>
+    </body>
+    </html>
+  `;
+  return new Blob([excelTemplate], { type: "application/vnd.ms-excel;charset=utf-8;" });
+}
+
+// EXPORTAR EXCEL DIARIO (Solo los que realizaron examen en el día seleccionado)
 if (btnExportCsv) {
   btnExportCsv.addEventListener("click", () => {
-    if (state.guards.length === 0) {
-      alert("No hay registros para exportar.");
+    // Filtrar para que solo se descarguen los guardias que finalizaron el examen
+    const examGuards = state.guards.filter(g => g.status === "Finalizado");
+    
+    if (examGuards.length === 0) {
+      alert("No hay exámenes finalizados registrados para la fecha seleccionada.");
       return;
     }
     
-    // Ordenar guardias por número de orden correlativo
-    const sortedGuards = [...state.guards].sort((a, b) => a.orderNum.localeCompare(b.orderNum));
-    
-    // Generar filas de la tabla
-    let tableRows = "";
-    sortedGuards.forEach(g => {
-      const scoreNum = parseInt(g.score, 10);
-      const isFail = !isNaN(scoreNum) && scoreNum < 60;
-      const failStyle = isFail ? ' style="background-color:#FECACA;color:#B91C1C;font-weight:bold;"' : '';
-      tableRows += `
-        <tr>
-          <td>${g.orderNum}</td>
-          <td>${g.nombres}</td>
-          <td>${g.apellidos}</td>
-          <td>${g.rut}</td>
-          <td>${g.telefono || 'N/A'}</td>
-          <td>${g.empresa}</td>
-          <td>${g.time}</td>
-          <td>${g.status}</td>
-          <td>${g.pcAssigned || 'N/A'}</td>
-          <td${failStyle}>${g.score || 'N/A'}</td>
-          <td${failStyle}>${g.result || 'N/A'}</td>
-          <td>${g.notes || 'Ninguna'}</td>
-        </tr>
-      `;
-    });
-    
-    // Plantilla XML/HTML de Excel para forzar estilos (verde #146314 y alineación centrada)
-    const excelTemplate = `
-      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
-      <head>
-        <meta charset="utf-8">
-        <!--[if gte mso 9]>
-        <xml>
-          <x:ExcelWorkbook>
-            <x:ExcelWorksheets>
-              <x:ExcelWorksheet>
-                <x:Name>Exámenes OS10</x:Name>
-                <x:WorksheetOptions>
-                  <x:DisplayGridlines/>
-                </x:WorksheetOptions>
-              </x:ExcelWorksheet>
-            </x:ExcelWorksheets>
-          </x:ExcelWorkbook>
-        </xml>
-        <![endif]-->
-        <style>
-          table {
-            border-collapse: collapse;
-          }
-          th {
-            background-color: #146314 !important;
-            color: #ffffff !important;
-            font-family: 'Segoe UI', Arial, sans-serif;
-            font-size: 11pt;
-            font-weight: bold;
-            text-align: center;
-            border: 1px solid #999999;
-            padding: 10px;
-          }
-          td {
-            font-family: 'Segoe UI', Arial, sans-serif;
-            font-size: 10pt;
-            text-align: center;
-            border: 1px solid #cccccc;
-            padding: 8px;
-          }
-        </style>
-      </head>
-      <body>
-        <table>
-          <thead>
-            <tr>
-              <th>N° Orden</th>
-              <th>Nombres</th>
-              <th>Apellidos</th>
-              <th>RUT</th>
-              <th>Teléfono</th>
-              <th>Empresa</th>
-              <th>Hora Llegada</th>
-              <th>Estado</th>
-              <th>PC Asignado</th>
-              <th>Puntaje</th>
-              <th>Resultado</th>
-              <th>Observaciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${tableRows}
-          </tbody>
-        </table>
-      </body>
-      </html>
-    `;
-    
-    const blob = new Blob([excelTemplate], { type: "application/vnd.ms-excel;charset=utf-8;" });
+    const blob = generateExcelBlob(examGuards, `Exámenes_${selectedDate}`);
     const url = URL.createObjectURL(blob);
     
     const link = document.createElement("a");
     link.setAttribute("href", url);
-    
     link.setAttribute("download", `Reporte_Examenes_OS10_${selectedDate}.xls`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  });
+}
+
+// EXPORTAR BASE DE DATOS COMPLETA CONSOLIDADA
+if (btnExportConsolidated) {
+  btnExportConsolidated.addEventListener("click", () => {
+    if (!state.allGuards || state.allGuards.length === 0) {
+      alert("La base de datos consolidada no contiene registros.");
+      return;
+    }
+    
+    const blob = generateExcelBlob(state.allGuards, "BD Consolidada");
+    const url = URL.createObjectURL(blob);
+    
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `Base_Datos_Consolidada_OS10.xls`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
