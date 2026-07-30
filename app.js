@@ -36,6 +36,20 @@ function getSupabaseId(dateStr) {
   return parseInt(dateStr.replace(/-/g, ''), 10);
 }
 
+// GET DATE OF REGISTRATION FOR A GUARD (EXTRACT FROM ID IF NOT SPECIFIED)
+function getGuardDate(guard) {
+  if (guard.date) return guard.date;
+  
+  if (guard.id && guard.id.startsWith('g_')) {
+    const ts = parseInt(guard.id.replace('g_', ''), 10);
+    if (!isNaN(ts)) {
+      const d = new Date(ts);
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    }
+  }
+  return selectedDate;
+}
+
 // CHILEAN GRADE SCALING (1.0 to 7.0, 60% requirement)
 function calculateChileanGrade(percent) {
   if (isNaN(percent) || percent === null) return "N/A";
@@ -606,6 +620,7 @@ if (registroForm) {
       telefono: telefonoVal,
       empresa: empresaVal || "Particular",
       time: timeStr,
+      date: getLocalDateString(),
       status: "En Espera",
       pcAssigned: null
     };
@@ -779,9 +794,9 @@ window.clearMyTicketAlert = function() {
 };
 
 function renderStats() {
-  const waitingCount = state.guards.filter(g => g.status === "En Espera").length;
-  const finishedCount = state.guards.filter(g => g.status === "Finalizado").length;
-  const totalCount = state.guards.length;
+  const waitingCount = state.guards.filter(g => g.status === "En Espera" && getGuardDate(g) === selectedDate).length;
+  const finishedCount = state.guards.filter(g => g.status === "Finalizado" && getGuardDate(g) === selectedDate).length;
+  const totalCount = state.guards.filter(g => getGuardDate(g) === selectedDate).length;
   
   if (statEsperando) statEsperando.innerText = waitingCount;
   if (statRindio) statRindio.innerText = finishedCount;
@@ -793,7 +808,10 @@ function renderPublicQueue() {
   if (!publicQueueTbody) return;
   publicQueueTbody.innerHTML = "";
   
-  const waitingOrActive = state.guards.filter(g => g.status === "En Espera" || g.status === "En Examen");
+  const waitingOrActive = state.guards.filter(g => 
+    (g.status === "En Espera" || g.status === "En Examen") && 
+    getGuardDate(g) === selectedDate
+  );
   
   if (waitingOrActive.length === 0) {
     publicQueueTbody.innerHTML = `
@@ -918,7 +936,7 @@ function renderAdminQueue() {
   if (!adminQueueTbody) return;
   adminQueueTbody.innerHTML = "";
   
-  const waitingGuards = state.guards.filter(g => g.status === "En Espera");
+  const waitingGuards = state.guards.filter(g => g.status === "En Espera" && getGuardDate(g) === selectedDate);
   
   if (waitingGuards.length === 0) {
     adminQueueTbody.innerHTML = `
@@ -1289,8 +1307,8 @@ function generateExcelBlob(guardsList, sheetName = "Reporte OS10") {
 // EXPORTAR EXCEL DIARIO (Solo los que realizaron examen en el día seleccionado)
 if (btnExportCsv) {
   btnExportCsv.addEventListener("click", () => {
-    // Filtrar para que solo se descarguen los guardias que finalizaron el examen
-    const examGuards = state.guards.filter(g => g.status === "Finalizado");
+    // Filtrar para que solo se descarguen los guardias que finalizaron el examen en la fecha seleccionada
+    const examGuards = state.guards.filter(g => g.status === "Finalizado" && getGuardDate(g) === selectedDate);
     
     if (examGuards.length === 0) {
       alert("No hay exámenes finalizados registrados para la fecha seleccionada.");
