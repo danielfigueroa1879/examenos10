@@ -1327,7 +1327,37 @@ body {
 }
 
 .gold-ticket::before, .gold-ticket::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: 20px;
+  height: 20px;
   background-color: var(--bg-card) !important;
+  border: 2.5px solid #D4AF37 !important;
+  border-radius: 50%;
+  z-index: 4;
+}
+
+.gold-ticket::before {
+  left: -11px;
+  transform: translateY(-50%);
+}
+
+.gold-ticket::after {
+  right: -11px;
+  transform: translateY(-50%);
+}
+
+.ticket-inner-border {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  right: 6px;
+  bottom: 6px;
+  border: 1px dashed rgba(212, 175, 55, 0.45);
+  border-radius: 8px;
+  pointer-events: none;
+  z-index: 1;
 }
 
 /* Elegant shining overlay */
