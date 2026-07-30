@@ -1226,27 +1226,37 @@ function generateExcelBlob(guardsList, sheetName = "Reporte OS10") {
   const sorted = [...guardsList].sort((a, b) => a.orderNum.localeCompare(b.orderNum));
   
   let tableRows = "";
-  sorted.forEach(g => {
+  sorted.forEach((g, index) => {
     const scoreNum = parseFloat(g.scoreVal || (g.score ? g.score.replace('%', '').replace(',', '.') : '0'));
-    const isFail = !isNaN(scoreNum) && scoreNum < 60 && g.status === "Finalizado";
-    const failStyle = isFail ? ' style="background-color:#FECACA;color:#B91C1C;font-weight:bold;font-family:\'Segoe UI\', Arial, sans-serif;font-size:10pt;text-align:center;border:1px solid #cccccc;padding:8px;"' : ' style="font-family:\'Segoe UI\', Arial, sans-serif;font-size:10pt;text-align:center;border:1px solid #cccccc;padding:8px;"';
+    const isFinalized = g.status === "Finalizado";
     const cellStyle = ' style="font-family:\'Segoe UI\', Arial, sans-serif;font-size:10pt;text-align:center;border:1px solid #cccccc;padding:8px;"';
+    
+    // Bold score styling: Green if >= 60, Red if < 60
+    let scoreStyle = cellStyle;
+    if (isFinalized && !isNaN(scoreNum)) {
+      if (scoreNum >= 60) {
+        scoreStyle = ' style="font-family:\'Segoe UI\', Arial, sans-serif;font-size:10pt;text-align:center;border:1px solid #cccccc;padding:8px;font-weight:bold;color:#15803D;background-color:#DCFCE7;"';
+      } else {
+        scoreStyle = ' style="font-family:\'Segoe UI\', Arial, sans-serif;font-size:10pt;text-align:center;border:1px solid #cccccc;padding:8px;font-weight:bold;color:#B91C1C;background-color:#FEE2E2;"';
+      }
+    }
     
     tableRows += `
       <tr>
-        <td${cellStyle}>${g.orderNum}</td>
+        <td${cellStyle}>${g.time}</td>
+        <td${cellStyle} style="font-weight:bold;">${index + 1}</td>
+        <td${cellStyle}>#${g.orderNum}</td>
         <td${cellStyle}>${g.nombres}</td>
         <td${cellStyle}>${g.apellidos}</td>
         <td${cellStyle}>${g.rut}</td>
         <td${cellStyle}>${g.telefono || 'N/A'}</td>
         <td${cellStyle}>${g.empresa}</td>
-        <td${cellStyle}>${g.time}</td>
         <td${cellStyle}>${g.examTime || 'N/A'}</td>
         <td${cellStyle}>${g.status}</td>
         <td${cellStyle}>${g.pcAssigned || 'N/A'}</td>
-        <td${failStyle}>${g.score || 'N/A'}</td>
-        <td${failStyle}>${g.grade || 'N/A'}</td>
-        <td${failStyle}>${g.result || 'N/A'}</td>
+        <td${scoreStyle}>${g.score || 'N/A'}</td>
+        <td${scoreStyle}>${g.grade || 'N/A'}</td>
+        <td${scoreStyle}>${g.result || 'N/A'}</td>
         <td${cellStyle}>${g.notes || 'Ninguna'}</td>
       </tr>
     `;
@@ -1278,13 +1288,14 @@ function generateExcelBlob(guardsList, sheetName = "Reporte OS10") {
       <table>
         <thead>
           <tr>
+            <th${thStyle}>Hora Llegada</th>
+            <th${thStyle}>N°</th>
             <th${thStyle}>N° Orden</th>
             <th${thStyle}>Nombres</th>
             <th${thStyle}>Apellidos</th>
             <th${thStyle}>RUT</th>
             <th${thStyle}>Teléfono</th>
             <th${thStyle}>Empresa</th>
-            <th${thStyle}>Hora Llegada</th>
             <th${thStyle}>Hora Examen</th>
             <th${thStyle}>Estado</th>
             <th${thStyle}>PC Asignado</th>
@@ -1328,15 +1339,67 @@ if (btnExportCsv) {
   });
 }
 
-// EXPORTAR BASE DE DATOS COMPLETA CONSOLIDADA
+// EXPORTAR BASE DE DATOS COMPLETA CONSOLIDADA (HISTÓRICO REAL DE TODOS LOS DIAS)
 if (btnExportConsolidated) {
-  btnExportConsolidated.addEventListener("click", () => {
-    if (!state.allGuards || state.allGuards.length === 0) {
+  btnExportConsolidated.addEventListener("click", async () => {
+    let mergedMap = new Map();
+
+    // 1. Cargar desde Supabase (si está configurado)
+    if (supabaseClient) {
+      try {
+        const { data, error } = await supabaseClient
+          .from('os10_sync')
+          .select('id, state');
+          
+        if (!error && data) {
+          data.forEach(row => {
+            // Filtrar filas de días reales (id es YYYYMMDD, ej: de 8 dígitos y no 99999999)
+            if (row.id && row.id !== 1 && row.id !== 99999999 && row.id.toString().length === 8) {
+              if (row.state && row.state.guards) {
+                row.state.guards.forEach(g => {
+                  mergedMap.set(g.id, g);
+                });
+              }
+            }
+          });
+        }
+      } catch (e) {
+        console.log("Error al obtener histórico de Supabase:", e);
+      }
+    }
+
+    // 2. Combinar con localStorage (para asegurar datos locales offline)
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith("os10_guards_")) {
+        try {
+          const guards = JSON.parse(localStorage.getItem(key)) || [];
+          guards.forEach(g => {
+            if (!mergedMap.has(g.id)) {
+              mergedMap.set(g.id, g);
+            }
+          });
+        } catch (e) {}
+      }
+    }
+
+    // 3. Fallback final con state.allGuards
+    if (state.allGuards) {
+      state.allGuards.forEach(g => {
+        if (!mergedMap.has(g.id)) {
+          mergedMap.set(g.id, g);
+        }
+      });
+    }
+
+    const allGuardsList = Array.from(mergedMap.values());
+
+    if (allGuardsList.length === 0) {
       alert("La base de datos consolidada no contiene registros.");
       return;
     }
-    
-    const blob = generateExcelBlob(state.allGuards, "BD Consolidada");
+
+    const blob = generateExcelBlob(allGuardsList, "BD Consolidada");
     const url = URL.createObjectURL(blob);
     
     const link = document.createElement("a");
