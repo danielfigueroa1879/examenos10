@@ -57,6 +57,9 @@
 
   <main class="main-content">
     
+    <!-- PERSISTENT USER TICKET ALERT BANNER -->
+    <div id="my-ticket-alert" class="hidden"></div>
+    
     <!-- SECTION 1: GUARD REGISTRATION -->
     <section id="tab-registro" class="tab-content active">
       <div class="card card-hero">
@@ -136,14 +139,16 @@
           </div>
           <h3>¡Ingreso Exitoso!</h3>
           <p>Ha sido registrado en la base de datos de llegada.</p>
-          <div class="ticket" style="position: relative; overflow: hidden; border: 1.5px solid rgba(20, 99, 20, 0.15); box-shadow: 0 4px 12px rgba(10, 60, 36, 0.05);">
+          <div class="ticket gold-ticket">
+            <!-- Shimmer effect -->
+            <div class="gold-ticket-shine"></div>
             <!-- Logo watermark in the ticket background -->
-            <div style="position: absolute; right: -10px; bottom: -10px; opacity: 0.06; pointer-events: none; width: 100px; height: 100px; background: url('logo-os10.webp') no-repeat center center; background-size: contain;"></div>
+            <div style="position: absolute; right: -10px; bottom: -10px; opacity: 0.08; pointer-events: none; width: 100px; height: 100px; background: url('logo-os10.webp') no-repeat center center; background-size: contain;"></div>
             
             <!-- Elegant Ticket Header with Logo -->
-            <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px dashed rgba(20, 99, 20, 0.2); padding-bottom: 0.5rem; margin-bottom: 0.75rem; position: relative; z-index: 2;">
-              <img src="logo-os10.webp" alt="Logo OS10" style="height: 24px; width: auto; object-fit: contain;">
-              <span style="font-size: 0.72rem; font-weight: 700; color: #146314; text-transform: uppercase; letter-spacing: 0.08em;">Examen O.S.10</span>
+            <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px dashed rgba(255, 255, 255, 0.2); padding-bottom: 0.5rem; margin-bottom: 0.75rem; position: relative; z-index: 2;">
+              <img src="logo-os10.webp" alt="Logo OS10" style="height: 32px; width: 32px; object-fit: contain; background-color: #ffffff; border: 2.5px solid #ffffff; border-radius: 50%; padding: 2px; box-shadow: 0 2px 6px rgba(0,0,0,0.2);">
+              <span style="font-size: 0.75rem; font-weight: 700; color: #ffffff; background-color: #146314; padding: 4px 10px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.08em; box-shadow: 0 2px 4px rgba(0,0,0,0.15); border: 1px solid rgba(255,255,255,0.2);">Examen O.S.10</span>
             </div>
             
             <div class="ticket-number" id="ticket-number" style="position: relative; z-index: 2;">#000</div>

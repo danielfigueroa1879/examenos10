@@ -613,6 +613,7 @@ if (registroForm) {
     state.guards.push(newGuard);
     upsertToAllGuards(newGuard);
     saveState();
+    localStorage.setItem("my_registered_guard_id", newGuard.id);
     
     // Reset Form
     registroForm.reset();
@@ -661,7 +662,121 @@ function renderAll() {
   renderPublicPcs();
   renderAdminQueue();
   renderAdminPcs();
+  checkMyTicketStatus();
 }
+
+// CHECK REGISTERED TICKET STATUS AND SHOW ALERTS
+function checkMyTicketStatus() {
+  const alertContainer = document.getElementById("my-ticket-alert");
+  if (!alertContainer) return;
+
+  const myGuardId = localStorage.getItem("my_registered_guard_id");
+  if (!myGuardId) {
+    alertContainer.classList.add("hidden");
+    return;
+  }
+
+  // Find the guard in active day guards
+  const guard = state.guards.find(g => g.id === myGuardId);
+
+  if (!guard) {
+    // If not found in active list (perhaps a new day or deleted), clear from local storage
+    localStorage.removeItem("my_registered_guard_id");
+    alertContainer.classList.add("hidden");
+    return;
+  }
+
+  // Calculate position if waiting
+  if (guard.status === "En Espera") {
+    const waitingGuards = state.guards.filter(g => g.status === "En Espera");
+    const myIndex = waitingGuards.findIndex(g => g.id === myGuardId);
+
+    if (myIndex === -1) {
+      alertContainer.classList.add("hidden");
+      return;
+    }
+
+    alertContainer.classList.remove("hidden");
+    if (myIndex <= 1) {
+      // 0 or 1 people ahead -> Next or second in line!
+      const statusText = myIndex === 0 ? "¡SIGUIENTE EN LA FILA!" : "¡SEGUNDO EN LA FILA!";
+      alertContainer.className = "ticket-alert-card"; // Pulse red animation
+      alertContainer.innerHTML = `
+        <div class="ticket-alert-content">
+          <div class="ticket-alert-title">
+            <span style="font-size: 1.25rem;">🔴</span> ${statusText}
+          </div>
+          <div class="ticket-alert-desc">
+            Está a punto de ser llamado al examen. Por favor, prepárese y acérquese a la zona de computadores.
+          </div>
+        </div>
+        <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 0.5rem;">
+          <div class="ticket-alert-number">#${guard.orderNum}</div>
+        </div>
+      `;
+    } else {
+      // Further back in queue
+      alertContainer.className = "ticket-alert-card alert-waiting"; // Neutral style
+      alertContainer.innerHTML = `
+        <div class="ticket-alert-content">
+          <div class="ticket-alert-title">
+            <span>⏱️</span> Su Ticket está en Espera
+          </div>
+          <div class="ticket-alert-desc">
+            Hay <strong>${myIndex}</strong> personas por delante de usted. Espere en la sala hasta ser llamado.
+          </div>
+        </div>
+        <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 0.5rem;">
+          <div class="ticket-alert-number">#${guard.orderNum}</div>
+          <button class="btn-clear-alert" onclick="clearMyTicketAlert()">Salir de Fila</button>
+        </div>
+      `;
+    }
+  } else if (guard.status === "En Examen") {
+    // Assigned to a PC!
+    alertContainer.classList.remove("hidden");
+    alertContainer.className = "ticket-alert-card alert-assigned"; // Pulse green animation
+    alertContainer.innerHTML = `
+      <div class="ticket-alert-content">
+        <div class="ticket-alert-title">
+          <span style="font-size: 1.25rem;">🟢</span> ¡SU TURNO HA LLEGADO!
+        </div>
+        <div class="ticket-alert-desc">
+          Por favor, diríjase de inmediato al <strong>Computador ${guard.pcAssigned}</strong> para rendir su examen.
+        </div>
+      </div>
+      <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 0.5rem;">
+        <div class="ticket-alert-number">#${guard.orderNum}</div>
+      </div>
+    `;
+  } else if (guard.status === "Finalizado") {
+    // Exam finished
+    alertContainer.classList.remove("hidden");
+    alertContainer.className = "ticket-alert-card alert-assigned";
+    alertContainer.innerHTML = `
+      <div class="ticket-alert-content">
+        <div class="ticket-alert-title">
+          <span>✅</span> Examen Finalizado
+        </div>
+        <div class="ticket-alert-desc">
+          Su registro de examen ha finalizado con éxito. ¡Muchas gracias por su asistencia!
+        </div>
+      </div>
+      <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 0.5rem;">
+        <button class="btn btn-secondary btn-sm" onclick="clearMyTicketAlert()">Aceptar</button>
+      </div>
+    `;
+  }
+}
+
+// Function to clear alert/ticket association
+window.clearMyTicketAlert = function() {
+  if (confirm("¿Está seguro que desea quitar este ticket de su pantalla? Esto no cancelará su lugar en la fila del servidor.")) {
+    localStorage.removeItem("my_registered_guard_id");
+    const alertContainer = document.getElementById("my-ticket-alert");
+    if (alertContainer) alertContainer.classList.add("hidden");
+  }
+};
 
 function renderStats() {
   const waitingCount = state.guards.filter(g => g.status === "En Espera").length;
