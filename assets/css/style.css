@@ -1477,6 +1477,20 @@ body {
   border-color: #94a3b8 !important;
 }
 
+/* Los campos de nombres/apellidos/empresa se muestran siempre en MAYÚSCULAS */
+#nombres,
+#apellidos,
+#empresa-otro,
+#edit-nombres,
+#edit-apellidos,
+#edit-empresa {
+  text-transform: uppercase;
+}
+
+#empresa-select {
+  text-transform: uppercase;
+}
+
 /* ============================================
    MODIFICAR PAGE - Guard management view
    ============================================ */
