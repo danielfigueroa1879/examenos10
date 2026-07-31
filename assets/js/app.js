@@ -932,6 +932,115 @@ function showAdminDashboard() {
   if (adminDashboard) adminDashboard.classList.remove("hidden");
   renderAdminQueue();
   renderAdminPcs();
+  // Ejecutar migración a MAYÚSCULAS de toda la base de datos (solo se ejecuta una vez)
+  migrateAllGuardsToUpper();
+}
+
+// MIGRACIÓN: normaliza a MAYÚSCULAS todos los registros existentes (localStorage + Supabase)
+// Se ejecuta una sola vez tras el flag `os10_upper_migration_v1` en localStorage.
+// Es idempotente: correr múltiples veces no daña nada, solo actualiza filas modificadas.
+async function migrateAllGuardsToUpper() {
+  const MIGRATION_KEY = "os10_upper_migration_v1";
+  if (localStorage.getItem(MIGRATION_KEY) === "done") return;
+
+  console.log("🔤 Migrando registros existentes a MAYÚSCULAS...");
+
+  const upperizeGuard = (g) => {
+    if (!g) return g;
+    return {
+      ...g,
+      nombres: toUpperText(g.nombres || ""),
+      apellidos: toUpperText(g.apellidos || ""),
+      empresa: toUpperText(g.empresa || "") || "PARTICULAR",
+    };
+  };
+
+  const guardChanged = (a, b) => (
+    a.nombres !== b.nombres || a.apellidos !== b.apellidos || a.empresa !== b.empresa
+  );
+
+  // 1. Migrar todas las claves de días en localStorage
+  const dayKeys = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && k.startsWith("os10_guards_")) dayKeys.push(k);
+  }
+  dayKeys.forEach((k) => {
+    try {
+      const arr = JSON.parse(localStorage.getItem(k)) || [];
+      const upped = arr.map(upperizeGuard);
+      localStorage.setItem(k, JSON.stringify(upped));
+    } catch (e) {}
+  });
+
+  // 2. Migrar lista consolidada local
+  try {
+    const all = JSON.parse(localStorage.getItem("os10_all_guards") || "[]");
+    const upped = all.map(upperizeGuard);
+    localStorage.setItem("os10_all_guards", JSON.stringify(upped));
+    if (state.allGuards) state.allGuards = upped;
+  } catch (e) {}
+
+  // 3. Migrar los guardias del día actual en memoria y volver a renderizar
+  if (state.guards) {
+    state.guards = state.guards.map(upperizeGuard);
+    if (typeof renderAll === "function") renderAll();
+  }
+
+  let supabaseOK = true;
+
+  // 4. Migrar Supabase (si está configurado)
+  if (supabaseClient) {
+    try {
+      const { data, error } = await supabaseClient.from("os10_sync").select("id, state");
+      if (error) {
+        console.log("Error leyendo Supabase para migración:", error);
+        supabaseOK = false;
+      } else if (data) {
+        for (const row of data) {
+          if (!row.state) continue;
+          const newState = JSON.parse(JSON.stringify(row.state));
+          let updated = false;
+
+          if (Array.isArray(newState.guards)) {
+            newState.guards = newState.guards.map((g) => {
+              const u = upperizeGuard(g);
+              if (guardChanged(g, u)) updated = true;
+              return u;
+            });
+          }
+          if (Array.isArray(newState.allGuards)) {
+            newState.allGuards = newState.allGuards.map((g) => {
+              const u = upperizeGuard(g);
+              if (guardChanged(g, u)) updated = true;
+              return u;
+            });
+          }
+
+          if (updated) {
+            const { error: upErr } = await supabaseClient
+              .from("os10_sync")
+              .upsert({ id: row.id, state: newState });
+            if (upErr) {
+              console.log("Error migrando fila Supabase id=" + row.id, upErr);
+              supabaseOK = false;
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.log("Error en migración Supabase:", e);
+      supabaseOK = false;
+    }
+  }
+
+  // Marcar como completo solo si Supabase se migró sin errores (o no está configurado)
+  if (supabaseOK) {
+    localStorage.setItem(MIGRATION_KEY, "done");
+    console.log("✅ Migración a MAYÚSCULAS completada.");
+  } else {
+    console.log("⚠️ Migración parcial: se reintentará en la próxima carga del admin.");
+  }
 }
 
 function showAdminLoginForm() {
