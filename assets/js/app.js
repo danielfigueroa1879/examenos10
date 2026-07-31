@@ -25,6 +25,12 @@ if (typeof supabase !== 'undefined' && SUPABASE_URL !== "YOUR_SUPABASE_URL") {
   supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 }
 
+// HELPER: normalize name/text fields to UPPERCASE (Chilean names, keeps accents)
+function toUpperText(str) {
+  if (str === null || str === undefined) return "";
+  return String(str).trim().toLocaleUpperCase("es-CL");
+}
+
 //// HELPER FOR LOCAL DATE STRING YYYY-MM-DD
 function getLocalDateString() {
   const d = new Date();
@@ -615,11 +621,11 @@ if (registroForm) {
     const newGuard = {
       id: 'g_' + Date.now(),
       orderNum: formattedOrder,
-      nombres: nombresVal,
-      apellidos: apellidosVal,
+      nombres: toUpperText(nombresVal),
+      apellidos: toUpperText(apellidosVal),
       rut: rutVal,
       telefono: telefonoVal,
-      empresa: empresaVal || "Particular",
+      empresa: toUpperText(empresaVal) || "PARTICULAR",
       time: timeStr,
       date: getLocalDateString(),
       status: "En Espera",
@@ -658,7 +664,7 @@ if (registroForm) {
     // Show overlay modal
     if (successOverlay) {
       if (ticketNumber) ticketNumber.innerText = `#${formattedOrder}`;
-      if (ticketName) ticketName.innerText = `${nombresVal} ${apellidosVal}`;
+      if (ticketName) ticketName.innerText = `${toUpperText(nombresVal)} ${toUpperText(apellidosVal)}`;
       if (ticketTime) ticketTime.innerText = `Ingreso: ${timeStr}`;
       successOverlay.classList.remove("hidden");
     }
@@ -1068,11 +1074,11 @@ if (editGuardForm) {
     const guard = state.guards.find(g => g.id === id);
     if (!guard) return;
 
-    guard.nombres = document.getElementById("edit-nombres").value.trim();
-    guard.apellidos = document.getElementById("edit-apellidos").value.trim();
+    guard.nombres = toUpperText(document.getElementById("edit-nombres").value);
+    guard.apellidos = toUpperText(document.getElementById("edit-apellidos").value);
     guard.rut = document.getElementById("edit-rut").value.trim();
     guard.telefono = document.getElementById("edit-telefono").value.trim();
-    guard.empresa = document.getElementById("edit-empresa").value.trim();
+    guard.empresa = toUpperText(document.getElementById("edit-empresa").value) || "PARTICULAR";
     
     const prevStatus = guard.status;
     const prevPc = guard.pcAssigned;
@@ -1416,11 +1422,11 @@ function generateExcelBlob(guardsList, sheetName = "Reporte OS10") {
         <td${cellStyle}>${g.time}</td>
         <td${cellStyle} style="font-weight:bold;">${index + 1}</td>
         <td${cellStyle}>#${g.orderNum}</td>
-        <td${cellStyle}>${g.nombres}</td>
-        <td${cellStyle}>${g.apellidos}</td>
+        <td${cellStyle}>${toUpperText(g.nombres)}</td>
+        <td${cellStyle}>${toUpperText(g.apellidos)}</td>
         <td${cellStyle}>${g.rut}</td>
         <td${cellStyle}>${g.telefono || 'N/A'}</td>
-        <td${cellStyle}>${g.empresa}</td>
+        <td${cellStyle}>${toUpperText(g.empresa)}</td>
         <td${cellStyle}>${g.examTime || 'N/A'}</td>
         <td${cellStyle}>${g.status}</td>
         <td${cellStyle}>${g.pcAssigned || 'N/A'}</td>
