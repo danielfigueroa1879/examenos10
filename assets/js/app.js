@@ -550,9 +550,97 @@ function initFormValidation() {
   }
 }
 
+// ==========================================
+// ASIGNACIÓN VERIFICADA DE TICKET
+// El ticket sólo se entrega DESPUÉS de confirmar dos veces que el
+// registro persistió en el sistema (Supabase). Evita entregar el mismo
+// número dos veces si dos personas se registran en paralelo.
+// ==========================================
+function guardTimestamp(g) {
+  if (!g || !g.id) return 0;
+  const n = parseInt(String(g.id).replace(/^g_/, ''), 10);
+  return isNaN(n) ? 0 : n;
+}
+
+async function fetchGuardsForDate(dateStr) {
+  if (!supabaseClient) return null;
+  try {
+    const { data, error } = await supabaseClient
+      .from('os10_sync')
+      .select('state')
+      .eq('id', getSupabaseId(dateStr))
+      .single();
+    if (error || !data || !data.state) return null;
+    return Array.isArray(data.state.guards) ? data.state.guards : [];
+  } catch (e) {
+    console.log("Error verificando registro en Supabase:", e);
+    return null;
+  }
+}
+
+async function verifyGuardInSystem(guardId, dateStr) {
+  const remote = await fetchGuardsForDate(dateStr);
+  if (remote === null) {
+    // Sin Supabase — validar contra el estado local persistido
+    const local = JSON.parse(localStorage.getItem(`os10_guards_${dateStr}`) || "[]");
+    return local.some(g => g.id === guardId) ? local : null;
+  }
+  return remote.some(g => g.id === guardId) ? remote : null;
+}
+
+// Devuelve el número de ticket asignado (padded) o null si no se pudo verificar
+async function assignVerifiedTicket(newGuard) {
+  const dateStr = getGuardDate(newGuard);
+
+  // === VERIFICACIÓN #1 — con reintentos por si el guardado aún no propaga
+  let verified1 = null;
+  for (let attempt = 0; attempt < 4 && !verified1; attempt++) {
+    if (attempt > 0) await new Promise(r => setTimeout(r, 350));
+    verified1 = await verifyGuardInSystem(newGuard.id, dateStr);
+  }
+  if (!verified1) {
+    // Reintento de guardado y una última verificación
+    await saveState();
+    await new Promise(r => setTimeout(r, 400));
+    verified1 = await verifyGuardInSystem(newGuard.id, dateStr);
+    if (!verified1) return null;
+  }
+
+  // === VERIFICACIÓN #2 — separada en el tiempo para asegurar consistencia
+  await new Promise(r => setTimeout(r, 500));
+  let verified2 = null;
+  for (let attempt = 0; attempt < 3 && !verified2; attempt++) {
+    if (attempt > 0) await new Promise(r => setTimeout(r, 300));
+    verified2 = await verifyGuardInSystem(newGuard.id, dateStr);
+  }
+  if (!verified2) return null;
+
+  // === ASIGNACIÓN DETERMINISTA
+  // Ordenamos por timestamp del id (todas las réplicas convergen al mismo
+  // orden), y el orderNum de cada guardia = su posición cronológica.
+  // Esto garantiza que el primero del día siempre reciba el #1 y que
+  // dos clientes independientes no puedan asignar el mismo número.
+  const sorted = [...verified2].sort((a, b) => guardTimestamp(a) - guardTimestamp(b));
+  sorted.forEach((g, idx) => {
+    g.orderNum = String(idx + 1).padStart(3, '0');
+    delete g.ticketPending;
+  });
+
+  // Reflejar en el estado local
+  state.guards = sorted;
+  const mine = state.guards.find(g => g.id === newGuard.id);
+  if (!mine) return null;
+
+  upsertToAllGuards(mine);
+  await saveState();
+  renderAll();
+
+  return mine.orderNum;
+}
+
 // FORM SUBMISSION (index.html)
 if (registroForm) {
-  registroForm.addEventListener("submit", (e) => {
+  registroForm.addEventListener("submit", async (e) => {
     e.preventDefault();
     
     const rutVal = rutInput.value.trim();
@@ -613,14 +701,13 @@ if (registroForm) {
     
     const today = new Date();
     const timeStr = today.toTimeString().split(' ')[0];
-    
-    // Auto-incremental order number
-    const nextOrderNum = state.guards.length + 1;
-    const formattedOrder = String(nextOrderNum).padStart(3, '0');
-    
+
+    // El ticket se asignará DESPUÉS de verificar dos veces que el registro
+    // quedó en el sistema. Empieza como null / pendiente.
     const newGuard = {
       id: 'g_' + Date.now(),
-      orderNum: formattedOrder,
+      orderNum: null,
+      ticketPending: true,
       nombres: toUpperText(nombresVal),
       apellidos: toUpperText(apellidosVal),
       rut: rutVal,
@@ -631,12 +718,12 @@ if (registroForm) {
       status: "En Espera",
       pcAssigned: null
     };
-    
+
     state.guards.push(newGuard);
     upsertToAllGuards(newGuard);
-    saveState();
     localStorage.setItem("my_registered_guard_id", newGuard.id);
-    
+    await saveState();
+
     // Reset Form
     registroForm.reset();
     rutInput.classList.remove("valid");
@@ -658,15 +745,43 @@ if (registroForm) {
     }
     const succ = document.getElementById("rut-success");
     if (succ) succ.style.display = "none";
-    
+
     renderAll();
-    
-    // Show overlay modal
+
+    // Mostrar overlay en modo "Verificando..." mientras se confirma
+    const submitBtn = registroForm.querySelector('button[type="submit"]');
+    const closeBtn = document.getElementById("close-success-btn");
     if (successOverlay) {
-      if (ticketNumber) ticketNumber.innerText = `#${formattedOrder}`;
+      if (ticketNumber) ticketNumber.innerText = "…";
       if (ticketName) ticketName.innerText = `${toUpperText(nombresVal)} ${toUpperText(apellidosVal)}`;
-      if (ticketTime) ticketTime.innerText = `Ingreso: ${timeStr}`;
+      if (ticketTime) ticketTime.innerText = "Verificando registro en el sistema…";
+      if (closeBtn) {
+        closeBtn.disabled = true;
+        closeBtn.style.opacity = "0.5";
+        closeBtn.style.cursor = "not-allowed";
+      }
       successOverlay.classList.remove("hidden");
+    }
+    if (submitBtn) submitBtn.disabled = true;
+
+    // Verificación doble y asignación del ticket
+    const assignedTicket = await assignVerifiedTicket(newGuard);
+
+    if (submitBtn) submitBtn.disabled = false;
+    if (closeBtn) {
+      closeBtn.disabled = false;
+      closeBtn.style.opacity = "";
+      closeBtn.style.cursor = "";
+    }
+
+    if (assignedTicket) {
+      if (ticketNumber) ticketNumber.innerText = `#${assignedTicket}`;
+      if (ticketTime) ticketTime.innerText = `Ingreso: ${timeStr}`;
+      localStorage.setItem("os10_sync_trigger", Date.now());
+    } else {
+      // No se pudo verificar — informar y dejar el registro marcado como pendiente
+      if (ticketNumber) ticketNumber.innerText = "—";
+      if (ticketTime) ticketTime.innerText = "No se pudo verificar el registro. Reintente o consulte al administrador.";
     }
   });
 }
@@ -733,7 +848,7 @@ function checkMyTicketStatus() {
           </div>
         </div>
         <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 0.5rem;">
-          <div class="ticket-alert-number">#${guard.orderNum}</div>
+          <div class="ticket-alert-number">#${guard.orderNum || '…'}</div>
         </div>
       `;
     } else {
@@ -749,7 +864,7 @@ function checkMyTicketStatus() {
           </div>
         </div>
         <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 0.5rem;">
-          <div class="ticket-alert-number">#${guard.orderNum}</div>
+          <div class="ticket-alert-number">#${guard.orderNum || '…'}</div>
           <button class="btn-clear-alert" onclick="clearMyTicketAlert()">Salir de Fila</button>
         </div>
       `;
@@ -849,7 +964,7 @@ function renderPublicQueue() {
     
     const row = document.createElement("tr");
     row.innerHTML = `
-      <td class="font-bold text-center">#${guard.orderNum}</td>
+      <td class="font-bold text-center">#${guard.orderNum || '…'}</td>
       <td class="font-medium">${guard.nombres} ${guard.apellidos}</td>
       <td class="text-muted">${maskedRut}</td>
       <td>${guard.time}</td>
@@ -1068,7 +1183,19 @@ function renderAdminQueue() {
   }
   
   const isToday = (selectedDate === getLocalDateString());
-  
+
+  // DETECCIÓN DE DUPLICADOS — nombre+apellido y RUT
+  const nameKey = (g) => `${toUpperText(g.nombres)}|${toUpperText(g.apellidos)}`;
+  const rutKey = (g) => cleanRut(g.rut || "");
+  const nameCounts = {};
+  const rutCounts = {};
+  dailyGuards.forEach(g => {
+    const nk = nameKey(g);
+    const rk = rutKey(g);
+    if (nk && nk !== "|") nameCounts[nk] = (nameCounts[nk] || 0) + 1;
+    if (rk) rutCounts[rk] = (rutCounts[rk] || 0) + 1;
+  });
+
   dailyGuards.forEach(guard => {
     let statusBadge = "";
     if (guard.status === "En Espera") {
@@ -1080,11 +1207,28 @@ function renderAdminQueue() {
       statusBadge = `<span class="badge ${isPass ? 'badge-success' : 'badge-danger'}" style="background-color: ${isPass ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)'}; color: ${isPass ? 'var(--success)' : 'var(--danger)'};">Finalizado (${guard.score})</span>`;
     }
 
+    const dupName = (nameCounts[nameKey(guard)] || 0) > 1;
+    const dupRut = (rutCounts[rutKey(guard)] || 0) > 1;
+    const isDuplicate = dupName || dupRut;
+    const dupCellStyle = 'color: #b91c1c; font-weight: 700;';
+    const dupTitle = dupName && dupRut ? 'Nombre y RUT duplicados'
+                    : dupName ? 'Nombre + apellido duplicado'
+                    : 'RUT duplicado';
+    const dupBadge = isDuplicate
+      ? ` <span title="${dupTitle}" style="display:inline-block; margin-left:6px; padding:1px 6px; font-size:0.65rem; font-weight:700; color:#fff; background:#dc2626; border-radius:10px; letter-spacing:0.03em;">DUPLICADO</span>`
+      : '';
+
     const row = document.createElement("tr");
+    row.setAttribute("data-duplicate", isDuplicate ? "true" : "false");
+    if (isDuplicate) {
+      row.style.backgroundColor = "rgba(239, 68, 68, 0.12)";
+      row.style.boxShadow = "inset 4px 0 0 #dc2626";
+      row.title = dupTitle;
+    }
     row.innerHTML = `
-      <td class="font-bold text-center">#${guard.orderNum}</td>
-      <td class="font-medium">${guard.nombres} ${guard.apellidos}</td>
-      <td>${guard.rut}</td>
+      <td class="font-bold text-center">#${guard.orderNum || '—'}</td>
+      <td class="font-medium"${dupName ? ` style="${dupCellStyle}"` : ''}>${guard.nombres} ${guard.apellidos}${dupName ? dupBadge : ''}</td>
+      <td${dupRut ? ` style="${dupCellStyle}"` : ''}>${guard.rut}${dupRut && !dupName ? dupBadge : ''}</td>
       <td class="text-muted">${guard.empresa}</td>
       <td>${guard.telefono || 'N/A'}</td>
       <td>${guard.time}</td>
@@ -1507,8 +1651,8 @@ function assignGuardToPc(guardId, pcNum) {
 
 // HELPER TO GENERATE EXCEL WITH INLINE STYLED HEADERS
 function generateExcelBlob(guardsList, sheetName = "Reporte OS10") {
-  // Sort guards by order number
-  const sorted = [...guardsList].sort((a, b) => a.orderNum.localeCompare(b.orderNum));
+  // Sort guards by order number (los que aún no tienen ticket van al final)
+  const sorted = [...guardsList].sort((a, b) => (a.orderNum || 'zzz').localeCompare(b.orderNum || 'zzz'));
   
   let tableRows = "";
   sorted.forEach((g, index) => {
@@ -1530,7 +1674,7 @@ function generateExcelBlob(guardsList, sheetName = "Reporte OS10") {
       <tr>
         <td${cellStyle}>${g.time}</td>
         <td${cellStyle} style="font-weight:bold;">${index + 1}</td>
-        <td${cellStyle}>#${g.orderNum}</td>
+        <td${cellStyle}>#${g.orderNum || 'PENDIENTE'}</td>
         <td${cellStyle}>${toUpperText(g.nombres)}</td>
         <td${cellStyle}>${toUpperText(g.apellidos)}</td>
         <td${cellStyle}>${g.rut}</td>
