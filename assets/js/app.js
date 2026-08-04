@@ -1835,28 +1835,53 @@ if (btnExportConsolidated) {
 // Los registros Finalizados se conservan como historial del día.
 // Requiere el PIN de admin para ejecutarse.
 if (btnResetQueue) {
-  btnResetQueue.addEventListener("click", () => {
-    const pin = prompt("Ingrese el PIN de administrador para reiniciar la fila del día.\n\nSe limpiarán los guardias En Espera / En Examen y se liberarán los PCs.\nLos registros Finalizados se conservarán como historial.");
+  btnResetQueue.addEventListener("click", async () => {
+    const pin = prompt(
+      "Ingrese el PIN de administrador para reiniciar el día.\n\n" +
+      "• Se limpiarán TODOS los guardias del día (En Espera, En Examen y Finalizados).\n" +
+      "• Los Finalizados quedan preservados en la Base de Datos Histórica Consolidada.\n" +
+      "• El próximo ticket será #001."
+    );
     if (pin === null) return;
     if (pin !== PIN_ADMIN) {
       alert("PIN incorrecto. La fila no fue reiniciada.");
       return;
     }
 
-    const confirmReset = confirm("¿Confirma reiniciar la fila del día? Los registros Finalizados se mantendrán como historial.");
+    const confirmReset = confirm(
+      "¿Confirma reiniciar el día completo?\n\n" +
+      "La numeración volverá a partir desde #001.\n" +
+      "Los Finalizados quedarán únicamente en la Base de Datos Histórica."
+    );
     if (!confirmReset) return;
 
-    state.guards = state.guards.filter(g => g.status === "Finalizado");
+    // Aseguramos que TODO lo del día quede en el histórico consolidado
+    // antes de vaciar el blob (upsertToAllGuards ya se llama al crear/editar,
+    // pero por si algún registro quedó fuera lo forzamos ahora).
+    state.guards.forEach(g => upsertToAllGuards(g));
+
+    // Vacía completamente el día → MEX volverá a arrancar en 1
+    state.guards = [];
     state.computers = {
       1: { status: "Disponible", guardId: null },
       2: { status: "Disponible", guardId: null },
       3: { status: "Disponible", guardId: null },
       4: { status: "Disponible", guardId: null }
     };
-    saveState();
-    renderAll();
+    await saveState();
 
-    // Notify other tabs
+    // Limpia el contador y las reservas del día en Supabase
+    if (supabaseClient) {
+      try {
+        const { error } = await supabaseClient.rpc('reset_ticket_counter');
+        if (error) console.error('Error reiniciando contador en Supabase:', error);
+      } catch (err) {
+        console.error('Error reiniciando contador en Supabase:', err);
+      }
+    }
+
+    renderAll();
     localStorage.setItem("os10_sync_trigger", Date.now());
+    alert("Día reiniciado. El próximo ticket será #001.");
   });
 }
