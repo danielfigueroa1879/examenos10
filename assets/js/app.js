@@ -1321,6 +1321,16 @@ if (editGuardForm) {
     }
     if (guard.status === "En Examen" && guard.pcAssigned) {
       state.computers[guard.pcAssigned] = { status: "Ocupado", guardId: guard.id };
+      // Iniciar (o reiniciar) el cronómetro si el guardia entra a examen o cambia de PC
+      if (prevStatus !== "En Examen" || prevPc !== guard.pcAssigned) {
+        guard.examStartTime = Date.now();
+        guard.examStartTimeStr = new Date().toTimeString().split(' ')[0];
+        guard.timeAlertShown = false;
+      }
+    } else {
+      delete guard.examStartTime;
+      delete guard.examStartTimeStr;
+      delete guard.timeAlertShown;
     }
 
     upsertToAllGuards(guard);
@@ -1370,18 +1380,22 @@ function renderAdminPcs() {
   for (let i = 1; i <= 4; i++) {
     const monitorItem = document.getElementById(`admin-pc-monitor-${i}`);
     if (!monitorItem) continue;
-    
+
     const indicatorEl = monitorItem.querySelector(".pc-indicator");
     const userP = monitorItem.querySelector(".admin-pc-user");
     const btnLiberar = monitorItem.querySelector(".btn-liberar");
+    const timerEl = monitorItem.querySelector(".pc-timer");
     const config = state.computers[i];
-    
+
     if (config.status === "Ocupado") {
       if (indicatorEl) indicatorEl.className = "pc-indicator bg-occupied";
-      
+
       const assignedGuard = state.guards.find(g => g.id === config.guardId);
       if (assignedGuard && userP) {
-        userP.innerHTML = `Rindiendo: <strong>${assignedGuard.nombres} ${assignedGuard.apellidos}</strong><br><small>Rut: ${assignedGuard.rut}</small>`;
+        const startStr = assignedGuard.examStartTimeStr
+          || (assignedGuard.examStartTime ? new Date(assignedGuard.examStartTime).toTimeString().split(' ')[0] : null);
+        const startLine = startStr ? `<br><small>Inicio: ${startStr}</small>` : '';
+        userP.innerHTML = `Rindiendo: <strong>${assignedGuard.nombres} ${assignedGuard.apellidos}</strong><br><small>Rut: ${assignedGuard.rut}</small>${startLine}`;
       } else if (userP) {
         userP.innerText = "Ocupado";
       }
@@ -1392,13 +1406,79 @@ function renderAdminPcs() {
           btnLiberar.classList.add("hidden");
         }
       }
+      if (timerEl) {
+        if (isToday && assignedGuard && assignedGuard.examStartTime) {
+          timerEl.classList.remove("hidden");
+        } else {
+          timerEl.classList.add("hidden");
+        }
+      }
     } else {
       if (indicatorEl) indicatorEl.className = "pc-indicator bg-available";
       if (userP) userP.innerText = "Disponible";
       if (btnLiberar) btnLiberar.classList.add("hidden");
+      if (timerEl) {
+        timerEl.classList.add("hidden");
+        timerEl.textContent = "--:--";
+        timerEl.classList.remove("timer-green", "timer-yellow", "timer-red");
+      }
+    }
+  }
+  updatePcTimers();
+}
+
+// SEMAFORO: Actualiza cronómetros de examen cada segundo (verde <27min, amarillo 27-30, rojo >=30)
+const EXAM_LIMIT_MINUTES = 30;
+const EXAM_WARN_MINUTES = 27;
+
+function updatePcTimers() {
+  const isToday = (selectedDate === getLocalDateString());
+  for (let i = 1; i <= 4; i++) {
+    const monitorItem = document.getElementById(`admin-pc-monitor-${i}`);
+    if (!monitorItem) continue;
+    const timerEl = monitorItem.querySelector(".pc-timer");
+    if (!timerEl) continue;
+
+    const config = state.computers[i];
+    if (!config || config.status !== "Ocupado") {
+      timerEl.classList.add("hidden");
+      continue;
+    }
+    const guard = state.guards.find(g => g.id === config.guardId);
+    if (!isToday || !guard || !guard.examStartTime) {
+      timerEl.classList.add("hidden");
+      continue;
+    }
+
+    const elapsedMs = Date.now() - guard.examStartTime;
+    const totalSec = Math.max(0, Math.floor(elapsedMs / 1000));
+    const mm = String(Math.floor(totalSec / 60)).padStart(2, '0');
+    const ss = String(totalSec % 60).padStart(2, '0');
+    timerEl.textContent = `${mm}:${ss}`;
+    timerEl.classList.remove("hidden");
+
+    const elapsedMin = totalSec / 60;
+    timerEl.classList.remove("timer-green", "timer-yellow", "timer-red");
+    if (elapsedMin >= EXAM_LIMIT_MINUTES) {
+      timerEl.classList.add("timer-red");
+      if (!guard.timeAlertShown) {
+        guard.timeAlertShown = true;
+        try { saveState(); } catch (_) {}
+        const name = `${guard.nombres || ''} ${guard.apellidos || ''}`.trim();
+        setTimeout(() => {
+          alert(`⏰ TIEMPO CUMPLIDO\n\nEl guardia ${name} en Computador ${i} ha alcanzado los ${EXAM_LIMIT_MINUTES} minutos de examen.\n\nDebe finalizar el examen.`);
+        }, 0);
+      }
+    } else if (elapsedMin >= EXAM_WARN_MINUTES) {
+      timerEl.classList.add("timer-yellow");
+    } else {
+      timerEl.classList.add("timer-green");
     }
   }
 }
+
+// Tick global cada segundo para mantener los cronómetros vivos
+setInterval(updatePcTimers, 1000);
 
 // Liberar PC event listeners (Muestra modal de ingreso de puntaje)
 let activePcForFinishing = null;
@@ -1505,8 +1585,9 @@ if (finishExamForm) {
     const notesValInput = document.getElementById("exam-notes").value;
     activeGuardForFinishing.notes = notesValInput || "Ninguna";
     
-    // Guardar hora de examen y nota chilena equivalente
+    // Guardar hora de término del examen y nota chilena equivalente
     activeGuardForFinishing.examTime = new Date().toTimeString().split(' ')[0];
+    activeGuardForFinishing.examEndTimeStr = activeGuardForFinishing.examTime;
     activeGuardForFinishing.grade = calculateChileanGrade(scoreFloat);
 
     // Liberar Computador
@@ -1590,7 +1671,10 @@ function assignGuardToPc(guardId, pcNum) {
   // Update Guard
   guard.status = "En Examen";
   guard.pcAssigned = pcNum;
-  
+  guard.examStartTime = Date.now();
+  guard.examStartTimeStr = new Date().toTimeString().split(' ')[0];
+  guard.timeAlertShown = false;
+
   // Update PC
   pc.status = "Ocupado";
   pc.guardId = guardId;
@@ -1628,6 +1712,9 @@ function generateExcelBlob(guardsList, sheetName = "Reporte OS10") {
       }
     }
     
+    const startStr = g.examStartTimeStr || (g.examStartTime ? new Date(g.examStartTime).toTimeString().split(' ')[0] : 'N/A');
+    const endStr = g.examEndTimeStr || g.examTime || 'N/A';
+
     tableRows += `
       <tr>
         <td${cellStyle}>${g.time}</td>
@@ -1638,7 +1725,8 @@ function generateExcelBlob(guardsList, sheetName = "Reporte OS10") {
         <td${cellStyle}>${g.rut}</td>
         <td${cellStyle}>${g.telefono || 'N/A'}</td>
         <td${cellStyle}>${toUpperText(g.empresa)}</td>
-        <td${cellStyle}>${g.examTime || 'N/A'}</td>
+        <td${cellStyle}>${startStr}</td>
+        <td${cellStyle}>${endStr}</td>
         <td${cellStyle}>${g.status}</td>
         <td${cellStyle}>${g.pcAssigned || 'N/A'}</td>
         <td${scoreStyle}>${g.score || 'N/A'}</td>
@@ -1683,7 +1771,8 @@ function generateExcelBlob(guardsList, sheetName = "Reporte OS10") {
             <th${thStyle}>RUT</th>
             <th${thStyle}>Teléfono</th>
             <th${thStyle}>Empresa</th>
-            <th${thStyle}>Hora Examen</th>
+            <th${thStyle}>Hora Inicio Examen</th>
+            <th${thStyle}>Hora Término Examen</th>
             <th${thStyle}>Estado</th>
             <th${thStyle}>PC Asignado</th>
             <th${thStyle}>Puntaje</th>
