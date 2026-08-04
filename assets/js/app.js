@@ -552,35 +552,21 @@ function initFormValidation() {
 
 // ==========================================
 // ASIGNACIÓN ATÓMICA DE TICKET (SERVER-SIDE)
-// La RPC `next_ticket_number(p_fecha date)` de PostgreSQL entrega un
-// contador POR DÍA usando INSERT ... ON CONFLICT DO UPDATE sobre
-// `os10_ticket_counters` (clave = fecha). El row-lock serializa a los
-// clientes concurrentes: es imposible que dos registros del mismo día
-// reciban el mismo número, y cada día empieza en 1.
+// La RPC `next_ticket_number(p_date date DEFAULT NULL)` de PostgreSQL
+// calcula MEX (menor número faltante) del blob del día + reservas vivas,
+// bajo advisory lock. El row-lock serializa a los clientes concurrentes:
+// es imposible que dos registros del mismo día reciban el mismo número,
+// y cada día empieza en 1 automáticamente.
 // ==========================================
 async function requestNextTicketNumber() {
   if (!supabaseClient) {
-    // Sin Supabase (offline / SDK no cargado): fallback local determinista
-    // sobre lo que hay en memoria. No es a prueba de carrera entre
-    // dispositivos, pero permite operar la app aislada.
+    // Sin Supabase (offline / SDK no cargado): fallback local determinista.
     return (state.guards.length || 0) + 1;
   }
-  const today = getLocalDateString();
-
-  // Intento 1: firma nueva con contador por día
-  let { data, error } = await supabaseClient.rpc('next_ticket_number', { p_fecha: today });
-
-  // Fallback: si la RPC aún no se ha migrado en Supabase, usar la firma antigua
-  // (contador global). Esto evita romper el registro mientras el admin ejecuta
-  // la migración SQL. En ese caso el contador NO se reinicia por día.
+  const { data, error } = await supabaseClient.rpc('next_ticket_number');
   if (error) {
-    console.warn('RPC next_ticket_number(p_fecha) no disponible, usando firma antigua. Ejecuta la migración SQL en Supabase.', error);
-    const legacy = await supabaseClient.rpc('next_ticket_number');
-    if (legacy.error) {
-      console.error('Error en next_ticket_number RPC (legacy):', legacy.error);
-      throw legacy.error;
-    }
-    data = legacy.data;
+    console.error('Error en next_ticket_number RPC:', error);
+    throw error;
   }
   return typeof data === 'number' ? data : parseInt(data, 10);
 }
