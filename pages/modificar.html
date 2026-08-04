@@ -327,6 +327,33 @@
         const dailyIndexById = new Map();
         sortedAll.forEach((g, i) => dailyIndexById.set(g.id, i + 1));
 
+        // === DETECCIÓN DE DUPLICADOS (nombre+apellido y RUT) ===
+        // Se calcula sobre TODOS los guardias del día (no sólo los filtrados).
+        const _norm = (s) => (s == null ? "" : String(s).trim().toUpperCase());
+        const _cleanRut = (r) => (typeof cleanRut === "function"
+          ? cleanRut(r || "")
+          : String(r || "").replace(/[^0-9kK]/g, "").toUpperCase());
+        const nameCounts = {};
+        const rutCounts = {};
+        sortedAll.forEach(g => {
+          const nk = `${_norm(g.nombres)}|${_norm(g.apellidos)}`;
+          const rk = _cleanRut(g.rut);
+          if (nk && nk !== "|") nameCounts[nk] = (nameCounts[nk] || 0) + 1;
+          if (rk) rutCounts[rk] = (rutCounts[rk] || 0) + 1;
+        });
+        const dupFlags = (g) => {
+          const dupName = (nameCounts[`${_norm(g.nombres)}|${_norm(g.apellidos)}`] || 0) > 1;
+          const dupRut = (rutCounts[_cleanRut(g.rut)] || 0) > 1;
+          return { dupName, dupRut, isDup: dupName || dupRut };
+        };
+        const dupTitleFor = (dupName, dupRut) =>
+          dupName && dupRut ? "Nombre y RUT duplicados"
+          : dupName ? "Nombre + apellido duplicado"
+          : "RUT duplicado";
+        const dupBadgeHtml = (dupName, dupRut) =>
+          ` <span title="${dupTitleFor(dupName, dupRut)}" style="display:inline-block;margin-left:6px;padding:1px 6px;font-size:0.65rem;font-weight:700;color:#fff;background:#dc2626;border-radius:10px;letter-spacing:0.03em;">DUPLICADO</span>`;
+        const dupCellStyle = "color:#b91c1c;font-weight:700;";
+
         // Apply search filter
         const q = (currentFilter || "").trim().toLowerCase();
         let filtered = sortedAll;
@@ -365,11 +392,23 @@
           const scoreCell = guard.status === "Finalizado"
             ? `<span style="font-weight:600;">${escapeHtml(guard.score || 'N/A')}</span>`
             : '<span class="text-muted">—</span>';
+          const { dupName, dupRut, isDup } = dupFlags(guard);
+          if (isDup) {
+            tr.setAttribute("data-duplicate", "true");
+            tr.style.backgroundColor = "rgba(239, 68, 68, 0.12)";
+            tr.style.boxShadow = "inset 4px 0 0 #dc2626";
+            tr.title = dupTitleFor(dupName, dupRut);
+          }
+          const nameStyle = dupName ? ` style="${dupCellStyle}"` : '';
+          const apeStyle = dupName ? ` style="${dupCellStyle}"` : '';
+          const rutStyle = dupRut ? ` style="${dupCellStyle}"` : '';
+          const nameBadge = dupName ? dupBadgeHtml(dupName, dupRut) : '';
+          const rutBadge = (dupRut && !dupName) ? dupBadgeHtml(dupName, dupRut) : '';
           tr.innerHTML = `
             <td class="mod-cell-num">${num}</td>
-            <td>${escapeHtml(guard.nombres)}</td>
-            <td>${escapeHtml(guard.apellidos)}</td>
-            <td>${escapeHtml(guard.rut)}</td>
+            <td${nameStyle}>${escapeHtml(guard.nombres)}</td>
+            <td${apeStyle}>${escapeHtml(guard.apellidos)}${nameBadge}</td>
+            <td${rutStyle}>${escapeHtml(guard.rut)}${rutBadge}</td>
             <td>${escapeHtml(guard.telefono || 'N/A')}</td>
             <td class="text-muted">${escapeHtml(guard.empresa)}</td>
             <td>${escapeHtml(guard.time)}</td>
@@ -393,6 +432,19 @@
           card.className = "guard-card";
           card.setAttribute("data-id", guard.id);
 
+          const { dupName, dupRut, isDup } = dupFlags(guard);
+          if (isDup) {
+            card.setAttribute("data-duplicate", "true");
+            card.style.backgroundColor = "rgba(239, 68, 68, 0.08)";
+            card.style.borderLeft = "4px solid #dc2626";
+            card.title = dupTitleFor(dupName, dupRut);
+          }
+          const nameCardStyle = dupName ? ` style="${dupCellStyle}"` : '';
+          const rutCardStyle = dupRut ? ` style="${dupCellStyle}"` : '';
+          const cardDupBadge = isDup
+            ? `<div style="margin-top:0.35rem;">${dupBadgeHtml(dupName, dupRut).trim()}</div>`
+            : '';
+
           const passInfo = guard.status === "Finalizado"
             ? `<div class="guard-info-row"><span class="lbl">Puntaje</span><span class="val">${escapeHtml(guard.score || 'N/A')} <small class="text-muted">(Nota: ${escapeHtml(guard.grade || 'N/A')})</small></span></div>`
             : '';
@@ -405,12 +457,13 @@
             <div class="guard-card-header">
               <div class="guard-order">${num}</div>
               <div class="guard-name-block">
-                <div class="guard-name">${escapeHtml(guard.nombres)} ${escapeHtml(guard.apellidos)}</div>
+                <div class="guard-name"${nameCardStyle}>${escapeHtml(guard.nombres)} ${escapeHtml(guard.apellidos)}</div>
                 <div class="guard-status-line">${statusBadge(guard)}</div>
+                ${cardDupBadge}
               </div>
             </div>
             <div class="guard-card-body">
-              <div class="guard-info-row"><span class="lbl">RUT</span><span class="val">${escapeHtml(guard.rut)}</span></div>
+              <div class="guard-info-row"><span class="lbl">RUT</span><span class="val"${rutCardStyle}>${escapeHtml(guard.rut)}</span></div>
               <div class="guard-info-row"><span class="lbl">Teléfono</span><span class="val">${escapeHtml(guard.telefono || 'N/A')}</span></div>
               <div class="guard-info-row"><span class="lbl">Empresa</span><span class="val">${escapeHtml(guard.empresa)}</span></div>
               <div class="guard-info-row"><span class="lbl">Ingreso</span><span class="val">${escapeHtml(guard.time)}</span></div>
