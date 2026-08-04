@@ -20,7 +20,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="../assets/css/style.css?v=3.1">
+  <link rel="stylesheet" href="../assets/css/style.css?v=3.2">
 </head>
 <body>
 
@@ -144,6 +144,7 @@
                 <h4>Computador 1</h4>
                 <p class="admin-pc-user">Disponible</p>
               </div>
+              <div class="pc-timer hidden" data-pc-timer="1" title="Tiempo transcurrido en el examen">--:--</div>
               <button class="btn btn-outline btn-sm btn-liberar hidden" data-pc="1">Finalizar</button>
             </div>
             <!-- Monitor PC 2 -->
@@ -153,6 +154,7 @@
                 <h4>Computador 2</h4>
                 <p class="admin-pc-user">Disponible</p>
               </div>
+              <div class="pc-timer hidden" data-pc-timer="2" title="Tiempo transcurrido en el examen">--:--</div>
               <button class="btn btn-outline btn-sm btn-liberar hidden" data-pc="2">Finalizar</button>
             </div>
             <!-- Monitor PC 3 -->
@@ -162,6 +164,7 @@
                 <h4>Computador 3</h4>
                 <p class="admin-pc-user">Disponible</p>
               </div>
+              <div class="pc-timer hidden" data-pc-timer="3" title="Tiempo transcurrido en el examen">--:--</div>
               <button class="btn btn-outline btn-sm btn-liberar hidden" data-pc="3">Finalizar</button>
             </div>
             <!-- Monitor PC 4 -->
@@ -171,6 +174,7 @@
                 <h4>Computador 4</h4>
                 <p class="admin-pc-user">Disponible</p>
               </div>
+              <div class="pc-timer hidden" data-pc-timer="4" title="Tiempo transcurrido en el examen">--:--</div>
               <button class="btn btn-outline btn-sm btn-liberar hidden" data-pc="4">Finalizar</button>
             </div>
           </div>
@@ -328,7 +332,7 @@
 
   <!-- Supabase Client SDK -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="../assets/js/app.js?v=3.1"></script>
+  <script src="../assets/js/app.js?v=3.3"></script>
   
   <!-- Service Worker Registration for PWA Installability -->
   <script>
