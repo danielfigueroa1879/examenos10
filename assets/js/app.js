@@ -872,10 +872,18 @@ function renderPublicQueue() {
   if (!publicQueueTbody) return;
   publicQueueTbody.innerHTML = "";
   
-  const waitingOrActive = state.guards.filter(g => 
-    (g.status === "En Espera" || g.status === "En Examen") && 
-    getGuardDate(g) === selectedDate
-  );
+  const waitingOrActive = state.guards
+    .filter(g =>
+      (g.status === "En Espera" || g.status === "En Examen") &&
+      getGuardDate(g) === selectedDate
+    )
+    .sort((a, b) => {
+      const na = parseInt(a.orderNum, 10);
+      const nb = parseInt(b.orderNum, 10);
+      const va = isNaN(na) ? Number.MAX_SAFE_INTEGER : na;
+      const vb = isNaN(nb) ? Number.MAX_SAFE_INTEGER : nb;
+      return va - vb;
+    });
   
   if (waitingOrActive.length === 0) {
     publicQueueTbody.innerHTML = `
@@ -1110,10 +1118,19 @@ function renderAdminQueue() {
   adminQueueTbody.innerHTML = "";
 
   // Solo mostrar guardias activos (En Espera / En Examen) — los Finalizados se ocultan de la fila
-  const dailyGuards = state.guards.filter(g =>
-    getGuardDate(g) === selectedDate &&
-    (g.status === "En Espera" || g.status === "En Examen")
-  );
+  const dailyGuards = state.guards
+    .filter(g =>
+      getGuardDate(g) === selectedDate &&
+      (g.status === "En Espera" || g.status === "En Examen")
+    )
+    .sort((a, b) => {
+      // Orden ascendente por número de ticket (numérico, no alfabético)
+      const na = parseInt(a.orderNum, 10);
+      const nb = parseInt(b.orderNum, 10);
+      const va = isNaN(na) ? Number.MAX_SAFE_INTEGER : na;
+      const vb = isNaN(nb) ? Number.MAX_SAFE_INTEGER : nb;
+      return va - vb;
+    });
 
   if (dailyGuards.length === 0) {
     adminQueueTbody.innerHTML = `
