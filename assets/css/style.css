@@ -762,39 +762,49 @@ body {
   text-align: center;
   letter-spacing: 0.5px;
   color: #ffffff;
-  background-color: #10B981;
-  border: 1px solid rgba(0,0,0,0.12);
+  background-color: #047857;
+  border: 1px solid rgba(0,0,0,0.15);
   box-shadow: 0 1px 2px rgba(0,0,0,0.15);
   transition: background-color 0.3s ease, box-shadow 0.3s ease;
 }
 
 .pc-timer.timer-green {
-  background-color: #10B981;
+  background-color: #047857;
   box-shadow: 0 1px 2px rgba(0,0,0,0.15);
 }
 
 .pc-timer.timer-yellow {
-  background-color: #F59E0B;
+  background-color: #D97706;
   box-shadow: 0 1px 2px rgba(0,0,0,0.15);
   animation: pulse 2s infinite;
 }
 
 .pc-timer.timer-red {
-  background-color: #EF4444;
+  background-color: #DC2626;
   box-shadow: 0 1px 2px rgba(0,0,0,0.15);
   animation: pulse 1s infinite;
+}
+
+/* En móvil el número debe leerse claro y grande */
+@media (max-width: 767px) {
+  .pc-timer {
+    font-size: 1.15rem;
+    padding: 0.4rem 0.7rem;
+    min-width: 74px;
+    letter-spacing: 1px;
+  }
 }
 
 /* En pantallas de escritorio damos un leve resplandor, pero suave */
 @media (min-width: 768px) {
   .pc-timer.timer-green {
-    box-shadow: 0 0 4px rgba(16, 185, 129, 0.45);
+    box-shadow: 0 0 4px rgba(4, 120, 87, 0.5);
   }
   .pc-timer.timer-yellow {
-    box-shadow: 0 0 5px rgba(245, 158, 11, 0.55);
+    box-shadow: 0 0 5px rgba(217, 119, 6, 0.55);
   }
   .pc-timer.timer-red {
-    box-shadow: 0 0 6px rgba(239, 68, 68, 0.65);
+    box-shadow: 0 0 6px rgba(220, 38, 38, 0.65);
   }
 }
 
