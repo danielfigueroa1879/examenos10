@@ -551,91 +551,25 @@ function initFormValidation() {
 }
 
 // ==========================================
-// ASIGNACIÓN VERIFICADA DE TICKET
-// El ticket sólo se entrega DESPUÉS de confirmar dos veces que el
-// registro persistió en el sistema (Supabase). Evita entregar el mismo
-// número dos veces si dos personas se registran en paralelo.
+// ASIGNACIÓN ATÓMICA DE TICKET (SERVER-SIDE)
+// El número lo entrega la RPC `next_ticket_number` de PostgreSQL, que usa
+// INSERT ... ON CONFLICT DO UPDATE sobre `os10_ticket_counters`. El
+// row-lock a nivel de fila serializa a los clientes concurrentes: es
+// físicamente imposible que dos registros reciban el mismo número.
 // ==========================================
-function guardTimestamp(g) {
-  if (!g || !g.id) return 0;
-  const n = parseInt(String(g.id).replace(/^g_/, ''), 10);
-  return isNaN(n) ? 0 : n;
-}
-
-async function fetchGuardsForDate(dateStr) {
-  if (!supabaseClient) return null;
-  try {
-    const { data, error } = await supabaseClient
-      .from('os10_sync')
-      .select('state')
-      .eq('id', getSupabaseId(dateStr))
-      .single();
-    if (error || !data || !data.state) return null;
-    return Array.isArray(data.state.guards) ? data.state.guards : [];
-  } catch (e) {
-    console.log("Error verificando registro en Supabase:", e);
-    return null;
+async function requestNextTicketNumber() {
+  if (!supabaseClient) {
+    // Sin Supabase (offline / SDK no cargado): fallback local determinista
+    // sobre lo que hay en memoria. No es a prueba de carrera entre
+    // dispositivos, pero permite operar la app aislada.
+    return (state.guards.length || 0) + 1;
   }
-}
-
-async function verifyGuardInSystem(guardId, dateStr) {
-  const remote = await fetchGuardsForDate(dateStr);
-  if (remote === null) {
-    // Sin Supabase — validar contra el estado local persistido
-    const local = JSON.parse(localStorage.getItem(`os10_guards_${dateStr}`) || "[]");
-    return local.some(g => g.id === guardId) ? local : null;
+  const { data, error } = await supabaseClient.rpc('next_ticket_number');
+  if (error) {
+    console.error('Error en next_ticket_number RPC:', error);
+    throw error;
   }
-  return remote.some(g => g.id === guardId) ? remote : null;
-}
-
-// Devuelve el número de ticket asignado (padded) o null si no se pudo verificar
-async function assignVerifiedTicket(newGuard) {
-  const dateStr = getGuardDate(newGuard);
-
-  // === VERIFICACIÓN #1 — con reintentos por si el guardado aún no propaga
-  let verified1 = null;
-  for (let attempt = 0; attempt < 4 && !verified1; attempt++) {
-    if (attempt > 0) await new Promise(r => setTimeout(r, 350));
-    verified1 = await verifyGuardInSystem(newGuard.id, dateStr);
-  }
-  if (!verified1) {
-    // Reintento de guardado y una última verificación
-    await saveState();
-    await new Promise(r => setTimeout(r, 400));
-    verified1 = await verifyGuardInSystem(newGuard.id, dateStr);
-    if (!verified1) return null;
-  }
-
-  // === VERIFICACIÓN #2 — separada en el tiempo para asegurar consistencia
-  await new Promise(r => setTimeout(r, 500));
-  let verified2 = null;
-  for (let attempt = 0; attempt < 3 && !verified2; attempt++) {
-    if (attempt > 0) await new Promise(r => setTimeout(r, 300));
-    verified2 = await verifyGuardInSystem(newGuard.id, dateStr);
-  }
-  if (!verified2) return null;
-
-  // === ASIGNACIÓN DETERMINISTA
-  // Ordenamos por timestamp del id (todas las réplicas convergen al mismo
-  // orden), y el orderNum de cada guardia = su posición cronológica.
-  // Esto garantiza que el primero del día siempre reciba el #1 y que
-  // dos clientes independientes no puedan asignar el mismo número.
-  const sorted = [...verified2].sort((a, b) => guardTimestamp(a) - guardTimestamp(b));
-  sorted.forEach((g, idx) => {
-    g.orderNum = String(idx + 1).padStart(3, '0');
-    delete g.ticketPending;
-  });
-
-  // Reflejar en el estado local
-  state.guards = sorted;
-  const mine = state.guards.find(g => g.id === newGuard.id);
-  if (!mine) return null;
-
-  upsertToAllGuards(mine);
-  await saveState();
-  renderAll();
-
-  return mine.orderNum;
+  return typeof data === 'number' ? data : parseInt(data, 10);
 }
 
 // FORM SUBMISSION (index.html)
@@ -701,13 +635,47 @@ if (registroForm) {
     
     const today = new Date();
     const timeStr = today.toTimeString().split(' ')[0];
+    const submitBtn = registroForm.querySelector('button[type="submit"]');
+    const closeBtn = document.getElementById("close-success-btn");
 
-    // El ticket se asignará DESPUÉS de verificar dos veces que el registro
-    // quedó en el sistema. Empieza como null / pendiente.
+    // Mostrar overlay en modo "Solicitando…" mientras el servidor entrega el número
+    if (successOverlay) {
+      if (ticketNumber) ticketNumber.innerText = "…";
+      if (ticketName) ticketName.innerText = `${toUpperText(nombresVal)} ${toUpperText(apellidosVal)}`;
+      if (ticketTime) ticketTime.innerText = "Solicitando número de ticket al servidor…";
+      if (closeBtn) {
+        closeBtn.disabled = true;
+        closeBtn.style.opacity = "0.5";
+        closeBtn.style.cursor = "not-allowed";
+      }
+      successOverlay.classList.remove("hidden");
+    }
+    if (submitBtn) submitBtn.disabled = true;
+
+    // ==============================================
+    // NÚMERO ATÓMICO desde PostgreSQL (imposible duplicar)
+    // ==============================================
+    let ticketNum;
+    try {
+      ticketNum = await requestNextTicketNumber();
+    } catch (err) {
+      // La RPC falló → NO se crea el guardia ni se entrega ticket
+      if (ticketNumber) ticketNumber.innerText = "—";
+      if (ticketTime) ticketTime.innerText = "No se pudo obtener el número de ticket. Reintente o consulte al administrador.";
+      if (submitBtn) submitBtn.disabled = false;
+      if (closeBtn) {
+        closeBtn.disabled = false;
+        closeBtn.style.opacity = "";
+        closeBtn.style.cursor = "";
+      }
+      return;
+    }
+
+    const formattedOrder = String(ticketNum).padStart(3, '0');
+
     const newGuard = {
       id: 'g_' + Date.now(),
-      orderNum: null,
-      ticketPending: true,
+      orderNum: formattedOrder,
       nombres: toUpperText(nombresVal),
       apellidos: toUpperText(apellidosVal),
       rut: rutVal,
@@ -748,41 +716,15 @@ if (registroForm) {
 
     renderAll();
 
-    // Mostrar overlay en modo "Verificando..." mientras se confirma
-    const submitBtn = registroForm.querySelector('button[type="submit"]');
-    const closeBtn = document.getElementById("close-success-btn");
-    if (successOverlay) {
-      if (ticketNumber) ticketNumber.innerText = "…";
-      if (ticketName) ticketName.innerText = `${toUpperText(nombresVal)} ${toUpperText(apellidosVal)}`;
-      if (ticketTime) ticketTime.innerText = "Verificando registro en el sistema…";
-      if (closeBtn) {
-        closeBtn.disabled = true;
-        closeBtn.style.opacity = "0.5";
-        closeBtn.style.cursor = "not-allowed";
-      }
-      successOverlay.classList.remove("hidden");
-    }
-    if (submitBtn) submitBtn.disabled = true;
-
-    // Verificación doble y asignación del ticket
-    const assignedTicket = await assignVerifiedTicket(newGuard);
-
+    if (ticketNumber) ticketNumber.innerText = `#${formattedOrder}`;
+    if (ticketTime) ticketTime.innerText = `Ingreso: ${timeStr}`;
     if (submitBtn) submitBtn.disabled = false;
     if (closeBtn) {
       closeBtn.disabled = false;
       closeBtn.style.opacity = "";
       closeBtn.style.cursor = "";
     }
-
-    if (assignedTicket) {
-      if (ticketNumber) ticketNumber.innerText = `#${assignedTicket}`;
-      if (ticketTime) ticketTime.innerText = `Ingreso: ${timeStr}`;
-      localStorage.setItem("os10_sync_trigger", Date.now());
-    } else {
-      // No se pudo verificar — informar y dejar el registro marcado como pendiente
-      if (ticketNumber) ticketNumber.innerText = "—";
-      if (ticketTime) ticketTime.innerText = "No se pudo verificar el registro. Reintente o consulte al administrador.";
-    }
+    localStorage.setItem("os10_sync_trigger", Date.now());
   });
 }
 
