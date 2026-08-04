@@ -763,26 +763,39 @@ body {
   letter-spacing: 0.5px;
   color: #ffffff;
   background-color: #10B981;
-  box-shadow: 0 0 10px rgba(16, 185, 129, 0.7), inset 0 0 6px rgba(255,255,255,0.25);
-  border: 1px solid rgba(0,0,0,0.08);
+  border: 1px solid rgba(0,0,0,0.12);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.15);
   transition: background-color 0.3s ease, box-shadow 0.3s ease;
 }
 
 .pc-timer.timer-green {
   background-color: #10B981;
-  box-shadow: 0 0 10px rgba(16, 185, 129, 0.7), inset 0 0 6px rgba(255,255,255,0.25);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.15);
 }
 
 .pc-timer.timer-yellow {
   background-color: #F59E0B;
-  box-shadow: 0 0 12px rgba(245, 158, 11, 0.85), inset 0 0 6px rgba(255,255,255,0.25);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.15);
   animation: pulse 2s infinite;
 }
 
 .pc-timer.timer-red {
   background-color: #EF4444;
-  box-shadow: 0 0 14px rgba(239, 68, 68, 0.95), inset 0 0 6px rgba(255,255,255,0.3);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.15);
   animation: pulse 1s infinite;
+}
+
+/* En pantallas de escritorio damos un leve resplandor, pero suave */
+@media (min-width: 768px) {
+  .pc-timer.timer-green {
+    box-shadow: 0 0 4px rgba(16, 185, 129, 0.45);
+  }
+  .pc-timer.timer-yellow {
+    box-shadow: 0 0 5px rgba(245, 158, 11, 0.55);
+  }
+  .pc-timer.timer-red {
+    box-shadow: 0 0 6px rgba(239, 68, 68, 0.65);
+  }
 }
 
 /* PC ASSIGNMENT MODAL */
