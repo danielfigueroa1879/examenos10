@@ -552,10 +552,11 @@ function initFormValidation() {
 
 // ==========================================
 // ASIGNACIÓN ATÓMICA DE TICKET (SERVER-SIDE)
-// El número lo entrega la RPC `next_ticket_number` de PostgreSQL, que usa
-// INSERT ... ON CONFLICT DO UPDATE sobre `os10_ticket_counters`. El
-// row-lock a nivel de fila serializa a los clientes concurrentes: es
-// físicamente imposible que dos registros reciban el mismo número.
+// La RPC `next_ticket_number(p_fecha date)` de PostgreSQL entrega un
+// contador POR DÍA usando INSERT ... ON CONFLICT DO UPDATE sobre
+// `os10_ticket_counters` (clave = fecha). El row-lock serializa a los
+// clientes concurrentes: es imposible que dos registros del mismo día
+// reciban el mismo número, y cada día empieza en 1.
 // ==========================================
 async function requestNextTicketNumber() {
   if (!supabaseClient) {
@@ -564,7 +565,8 @@ async function requestNextTicketNumber() {
     // dispositivos, pero permite operar la app aislada.
     return (state.guards.length || 0) + 1;
   }
-  const { data, error } = await supabaseClient.rpc('next_ticket_number');
+  const today = getLocalDateString();
+  const { data, error } = await supabaseClient.rpc('next_ticket_number', { p_fecha: today });
   if (error) {
     console.error('Error en next_ticket_number RPC:', error);
     throw error;
