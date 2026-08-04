@@ -566,10 +566,21 @@ async function requestNextTicketNumber() {
     return (state.guards.length || 0) + 1;
   }
   const today = getLocalDateString();
-  const { data, error } = await supabaseClient.rpc('next_ticket_number', { p_fecha: today });
+
+  // Intento 1: firma nueva con contador por día
+  let { data, error } = await supabaseClient.rpc('next_ticket_number', { p_fecha: today });
+
+  // Fallback: si la RPC aún no se ha migrado en Supabase, usar la firma antigua
+  // (contador global). Esto evita romper el registro mientras el admin ejecuta
+  // la migración SQL. En ese caso el contador NO se reinicia por día.
   if (error) {
-    console.error('Error en next_ticket_number RPC:', error);
-    throw error;
+    console.warn('RPC next_ticket_number(p_fecha) no disponible, usando firma antigua. Ejecuta la migración SQL en Supabase.', error);
+    const legacy = await supabaseClient.rpc('next_ticket_number');
+    if (legacy.error) {
+      console.error('Error en next_ticket_number RPC (legacy):', legacy.error);
+      throw legacy.error;
+    }
+    data = legacy.data;
   }
   return typeof data === 'number' ? data : parseInt(data, 10);
 }
