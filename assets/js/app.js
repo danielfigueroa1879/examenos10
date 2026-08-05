@@ -1934,52 +1934,48 @@ if (btnResetQueue) {
     const confirmReset = confirm("¿Confirma reiniciar la fila del día?\n\n• Los guardias En Espera / En Examen serán borrados.\n• Los Finalizados se mantendrán visibles como historial del día.");
     if (!confirmReset) return;
 
-    state.guards = state.guards.filter(g => g.status === "Finalizado");
+    // Preguntar sobre reinicio de numeración ANTES de mutar estado
+    let doCounterReset = false;
+    if (supabaseClient && selectedDate === getLocalDateString()) {
+      const finalizados = state.guards.filter(g => g.status === "Finalizado").length;
+      const aviso = finalizados > 0
+        ? `\n\n⚠️ ATENCIÓN: Esto BORRARÁ TAMBIÉN los ${finalizados} registro(s) Finalizado(s) del día (dejarán de estar visibles en la fila, aunque seguirán en la Base de Datos Consolidada histórica).`
+        : "";
+      doCounterReset = confirm(`¿Reiniciar también la numeración de tickets del día para que el próximo registro sea #001?${aviso}`);
+    }
+
+    // Comportamiento estándar: conservar Finalizados como historial.
+    // Si se reinicia numeración: vaciar TODO el día (los Finalizados quedan solo
+    // en state.allGuards / BD Consolidada).
+    if (doCounterReset) {
+      state.guards = [];
+    } else {
+      state.guards = state.guards.filter(g => g.status === "Finalizado");
+    }
     state.computers = {
       1: { status: "Disponible", guardId: null },
       2: { status: "Disponible", guardId: null },
       3: { status: "Disponible", guardId: null },
       4: { status: "Disponible", guardId: null }
     };
-    saveState();
-    renderAll();
+    await saveState();
 
-    // Notify other tabs
-    localStorage.setItem("os10_sync_trigger", Date.now());
-
-    // Ofrecer reiniciar el contador de tickets del día para que el próximo
-    // registro sea #001. Se ofrece siempre — advertir del riesgo de colisión
-    // si aún quedan Finalizados con números emitidos ese día.
-    if (supabaseClient && selectedDate === getLocalDateString()) {
-      const hayFinalizados = state.guards.length > 0;
-      const aviso = hayFinalizados
-        ? `\n\n⚠️ ATENCIÓN: Aún hay ${state.guards.length} registro(s) Finalizado(s) del día con números ya emitidos. Reiniciar la numeración puede provocar que un nuevo guardia reciba el mismo número que uno finalizado. Solo confirma si estás seguro.`
-        : "";
-      const resetCounter = confirm(`¿Reiniciar también la numeración de tickets del día para que el próximo registro sea #001?${aviso}`);
-      if (resetCounter) {
-        try {
-          const { error: errA } = await supabaseClient
-            .from('os10_ticket_assignments')
-            .delete()
-            .eq('ticket_date', selectedDate);
-          if (errA) console.error('Error borrando os10_ticket_assignments:', errA);
-
-          const { error: errC } = await supabaseClient
-            .from('os10_ticket_counters')
-            .delete()
-            .eq('ticket_date', selectedDate);
-          if (errC) console.error('Error borrando os10_ticket_counters:', errC);
-
-          if (!errA && !errC) {
-            alert("Numeración reiniciada. El próximo registro será #001.");
-          } else {
-            alert("La numeración no pudo reiniciarse en el servidor. Revise la consola.");
-          }
-        } catch (err) {
-          console.error('Error al reiniciar contador:', err);
-          alert("Error al conectar con el servidor para reiniciar la numeración.");
+    if (doCounterReset) {
+      try {
+        const { error } = await supabaseClient.rpc('reset_ticket_counter', { p_date: selectedDate });
+        if (error) {
+          console.error('Error en reset_ticket_counter RPC:', error);
+          alert("La numeración no pudo reiniciarse en el servidor. Revise la consola.");
+        } else {
+          alert("Numeración reiniciada. El próximo registro será #001.");
         }
+      } catch (err) {
+        console.error('Error al llamar reset_ticket_counter:', err);
+        alert("Error al conectar con el servidor para reiniciar la numeración.");
       }
     }
+
+    renderAll();
+    localStorage.setItem("os10_sync_trigger", Date.now());
   });
 }
