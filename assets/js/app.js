@@ -1923,7 +1923,7 @@ if (btnExportConsolidated) {
 // Los registros Finalizados se conservan como historial del día.
 // Requiere el PIN de admin para ejecutarse.
 if (btnResetQueue) {
-  btnResetQueue.addEventListener("click", () => {
+  btnResetQueue.addEventListener("click", async () => {
     const pin = prompt("Ingrese el PIN de administrador para reiniciar la fila del día.\n\nSe limpiarán los guardias En Espera / En Examen y se liberarán los PCs.\nLos registros Finalizados se conservarán como historial del día.");
     if (pin === null) return;
     if (pin !== PIN_ADMIN) {
@@ -1946,5 +1946,36 @@ if (btnResetQueue) {
 
     // Notify other tabs
     localStorage.setItem("os10_sync_trigger", Date.now());
+
+    // Si no quedan guardias del día, ofrecer reiniciar el contador de tickets
+    // para que la próxima registración empiece en #001. Solo se permite cuando
+    // no hay Finalizados (evitar colisiones históricas de números).
+    if (state.guards.length === 0 && supabaseClient && selectedDate === getLocalDateString()) {
+      const resetCounter = confirm("¿Reiniciar también la numeración de tickets del día para que el próximo registro sea #001?\n\nSolo hazlo si no habrá conflicto con números ya emitidos.");
+      if (resetCounter) {
+        try {
+          const { error: errA } = await supabaseClient
+            .from('os10_ticket_assignments')
+            .delete()
+            .eq('ticket_date', selectedDate);
+          if (errA) console.error('Error borrando os10_ticket_assignments:', errA);
+
+          const { error: errC } = await supabaseClient
+            .from('os10_ticket_counters')
+            .delete()
+            .eq('ticket_date', selectedDate);
+          if (errC) console.error('Error borrando os10_ticket_counters:', errC);
+
+          if (!errA && !errC) {
+            alert("Numeración reiniciada. El próximo registro será #001.");
+          } else {
+            alert("La numeración no pudo reiniciarse en el servidor. Revise la consola.");
+          }
+        } catch (err) {
+          console.error('Error al reiniciar contador:', err);
+          alert("Error al conectar con el servidor para reiniciar la numeración.");
+        }
+      }
+    }
   });
 }
