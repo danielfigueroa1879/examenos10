@@ -192,24 +192,13 @@ async function loadState() {
         .select('state')
         .eq('id', getSupabaseId(selectedDate))
         .single();
-      
-      // Fallback/migración: Si no hay datos para hoy, intentar cargar la fila heredada (id = 1)
-      if ((error || !data || !data.state) && selectedDate === today) {
-        const legacyRes = await supabaseClient
-          .from('os10_sync')
-          .select('state')
-          .eq('id', 1)
-          .single();
-        if (!legacyRes.error && legacyRes.data && legacyRes.data.state) {
-          data = legacyRes.data;
-          error = null;
-          // Guardar inmediatamente en la base de datos con el nuevo ID del día para migrar
-          await supabaseClient
-            .from('os10_sync')
-            .upsert({ id: getSupabaseId(selectedDate), state: data.state });
-        }
-      }
-        
+
+      // NOTA: se eliminó el fallback a la fila legacy id=1.
+      // Antes, cuando no había datos para hoy, se copiaba la fila id=1 como
+      // estado del día actual — eso arrastraba guardias antiguos y hacía que
+      // la RPC next_ticket_number viera orderNums fantasma. Ya no se necesita:
+      // si no hay datos para hoy, simplemente arrancamos con estado vacío.
+
       if (!error && data && data.state) {
         state.guards = data.state.guards || [];
         state.computers = data.state.computers || state.computers;
