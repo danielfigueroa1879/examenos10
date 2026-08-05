@@ -1947,11 +1947,15 @@ if (btnResetQueue) {
     // Notify other tabs
     localStorage.setItem("os10_sync_trigger", Date.now());
 
-    // Si no quedan guardias del día, ofrecer reiniciar el contador de tickets
-    // para que la próxima registración empiece en #001. Solo se permite cuando
-    // no hay Finalizados (evitar colisiones históricas de números).
-    if (state.guards.length === 0 && supabaseClient && selectedDate === getLocalDateString()) {
-      const resetCounter = confirm("¿Reiniciar también la numeración de tickets del día para que el próximo registro sea #001?\n\nSolo hazlo si no habrá conflicto con números ya emitidos.");
+    // Ofrecer reiniciar el contador de tickets del día para que el próximo
+    // registro sea #001. Se ofrece siempre — advertir del riesgo de colisión
+    // si aún quedan Finalizados con números emitidos ese día.
+    if (supabaseClient && selectedDate === getLocalDateString()) {
+      const hayFinalizados = state.guards.length > 0;
+      const aviso = hayFinalizados
+        ? `\n\n⚠️ ATENCIÓN: Aún hay ${state.guards.length} registro(s) Finalizado(s) del día con números ya emitidos. Reiniciar la numeración puede provocar que un nuevo guardia reciba el mismo número que uno finalizado. Solo confirma si estás seguro.`
+        : "";
+      const resetCounter = confirm(`¿Reiniciar también la numeración de tickets del día para que el próximo registro sea #001?${aviso}`);
       if (resetCounter) {
         try {
           const { error: errA } = await supabaseClient
