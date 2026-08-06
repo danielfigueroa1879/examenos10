@@ -1,5 +1,44 @@
 // CONFIGURATION & STATE
-const PIN_ADMIN = "8979";
+// NOTA DE SEGURIDAD: NINGUNA clave vive en el código.
+// Se validan en el servidor Supabase vía RPCs:
+//   - verify_admin_pin(p_pin text)  → PIN de acceso/visualización (equipo)
+//   - verify_master_pin(p_pin text) → CLAVE MAESTRA para cambios/eliminación/reset
+// Así ninguna clave queda expuesta en GitHub ni en el navegador (F12).
+
+// Helper genérico: valida un PIN contra una RPC de Supabase, retorna boolean.
+async function verifyPinOnServer(rpcName, pin) {
+  if (!supabaseClient) return null; // null = sin conexión (para diferenciar de false = incorrecta)
+  try {
+    const { data, error } = await supabaseClient.rpc(rpcName, { p_pin: pin });
+    if (error) {
+      console.error(`Error verificando PIN (${rpcName}):`, error);
+      return null;
+    }
+    return data === true;
+  } catch (err) {
+    console.error(`Error verificando PIN (${rpcName}):`, err);
+    return null;
+  }
+}
+
+// Solicita la clave maestra al servidor para acciones destructivas o de modificación.
+// Devuelve true SOLO si el servidor confirma la clave. Cancelación o clave errónea → false.
+async function requireMasterPin(actionLabel) {
+  const label = actionLabel || "esta acción";
+  const pin = prompt(`🔒 Doble seguridad requerida\n\nPara ${label} debe ingresar la CLAVE MAESTRA:`);
+  if (pin === null) return false;
+
+  const result = await verifyPinOnServer('verify_master_pin', pin);
+  if (result === null) {
+    alert("Sin conexión al servidor. La verificación de la clave requiere conexión activa.");
+    return false;
+  }
+  if (result !== true) {
+    alert("Clave maestra incorrecta. La acción fue cancelada.");
+    return false;
+  }
+  return true;
+}
 
 let state = {
   guards: [], // Array of objects: { id, orderNum, nombres, apellidos, rut, empresa, time, status, pcAssigned }
@@ -955,18 +994,44 @@ function initAdminAuth() {
     showAdminLoginForm();
   }
 
-  adminLoginForm.addEventListener("submit", (e) => {
+  adminLoginForm.addEventListener("submit", async (e) => {
     e.preventDefault();
     const pin = adminPinInput.value;
-    
-    if (pin === PIN_ADMIN) {
+    const submitBtn = adminLoginForm.querySelector('button[type="submit"]');
+
+    // Feedback visual mientras el servidor verifica el PIN
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.dataset._label = submitBtn.textContent;
+      submitBtn.textContent = "Verificando…";
+    }
+    const ok = await verifyPinOnServer('verify_admin_pin', pin);
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = submitBtn.dataset._label || "Ingresar";
+    }
+
+    if (ok === null) {
+      if (pinError) {
+        pinError.textContent = "Sin conexión al servidor. Revise su internet e intente de nuevo.";
+        pinError.style.display = "block";
+      } else {
+        alert("Sin conexión al servidor. Revise su internet e intente de nuevo.");
+      }
+      return;
+    }
+
+    if (ok === true) {
       state.isAdminAuthenticated = true;
       sessionStorage.setItem("os10_admin_auth", "true");
       adminPinInput.value = "";
       if (pinError) pinError.style.display = "none";
       showAdminDashboard();
     } else {
-      if (pinError) pinError.style.display = "block";
+      if (pinError) {
+        pinError.textContent = "PIN Incorrecto. Intente de nuevo.";
+        pinError.style.display = "block";
+      }
       adminPinInput.focus();
     }
   });
@@ -1268,11 +1333,14 @@ const editGuardForm = document.getElementById("edit-guard-form");
 const btnCancelEdit = document.getElementById("btn-cancel-edit");
 
 if (editGuardForm) {
-  editGuardForm.addEventListener("submit", (e) => {
+  editGuardForm.addEventListener("submit", async (e) => {
     e.preventDefault();
     const id = document.getElementById("edit-guard-id").value;
     const guard = state.guards.find(g => g.id === id);
     if (!guard) return;
+
+    // Doble seguridad: guardar cambios requiere clave maestra (validada en servidor)
+    if (!(await requireMasterPin("guardar cambios en el registro del guardia"))) return;
 
     guard.nombres = toUpperText(document.getElementById("edit-nombres").value);
     guard.apellidos = toUpperText(document.getElementById("edit-apellidos").value);
@@ -1340,8 +1408,11 @@ if (btnCancelEdit) {
 }
 
 // Delete Guard Handler
-function deleteGuard(guardId) {
+async function deleteGuard(guardId) {
   if (confirm("¿Está seguro que desea eliminar a este guardia del listado de hoy? Esto también liberará su PC si está rindiendo examen.")) {
+    // Doble seguridad: eliminar guardia requiere clave maestra (validada en servidor)
+    if (!(await requireMasterPin("eliminar a este guardia del listado"))) return;
+
     const index = state.guards.findIndex(g => g.id === guardId);
     if (index === -1) return;
 
@@ -1783,12 +1854,17 @@ function generateExcelBlob(guardsList, sheetName = "Reporte OS10") {
   return new Blob([excelTemplate], { type: "application/vnd.ms-excel;charset=utf-8;" });
 }
 
-// ABRIR PÁGINA DE MODIFICACIÓN DEL DÍA (solo escritorio, requiere PIN)
+// ABRIR PÁGINA DE MODIFICACIÓN DEL DÍA (solo escritorio, requiere PIN validado en servidor)
 if (btnModificarDia) {
-  btnModificarDia.addEventListener("click", () => {
+  btnModificarDia.addEventListener("click", async () => {
     const pin = prompt("Ingrese el PIN de administrador para acceder a Modificar:");
     if (pin === null) return;
-    if (pin !== PIN_ADMIN) {
+    const ok = await verifyPinOnServer('verify_admin_pin', pin);
+    if (ok === null) {
+      alert("Sin conexión al servidor. La verificación requiere conexión activa.");
+      return;
+    }
+    if (ok !== true) {
       alert("PIN incorrecto. Acceso denegado.");
       return;
     }
@@ -1924,13 +2000,21 @@ if (btnResetQueue) {
   btnResetQueue.addEventListener("click", async () => {
     const pin = prompt("Ingrese el PIN de administrador para reiniciar la fila del día.\n\nSe limpiarán los guardias En Espera / En Examen y se liberarán los PCs.\nLos registros Finalizados se conservarán como historial del día.");
     if (pin === null) return;
-    if (pin !== PIN_ADMIN) {
+    const okPin = await verifyPinOnServer('verify_admin_pin', pin);
+    if (okPin === null) {
+      alert("Sin conexión al servidor. La verificación requiere conexión activa.");
+      return;
+    }
+    if (okPin !== true) {
       alert("PIN incorrecto. La fila no fue reiniciada.");
       return;
     }
 
     const confirmReset = confirm("¿Confirma reiniciar la fila del día?\n\n• Los guardias En Espera / En Examen serán borrados.\n• Los Finalizados se mantendrán visibles como historial del día.");
     if (!confirmReset) return;
+
+    // Doble seguridad: reiniciar el día es destructivo → requiere clave maestra (validada en servidor)
+    if (!(await requireMasterPin("reiniciar la fila del día (acción destructiva)"))) return;
 
     // COMPORTAMIENTO SEGURO: SIEMPRE conservar los Finalizados como historial.
     // Nunca se tocan sin acción explícita del admin (edición o eliminación individual).
