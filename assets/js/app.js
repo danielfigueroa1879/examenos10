@@ -458,23 +458,16 @@ function validateChileanRut(rut) {
   return dv === expectedDv;
 }
 
+// Formatea el RUT SIN puntos, solo con guion antes del dígito verificador.
+// Ej: "12345678K" → "12345678-K"
 function formatRut(rut) {
   const clean = cleanRut(rut);
   if (clean.length === 0) return '';
   if (clean.length === 1) return clean;
-  
+
   const body = clean.slice(0, -1);
   const dv = clean.slice(-1);
-  
-  let formatted = '';
-  for (let i = body.length - 1, j = 0; i >= 0; i--, j++) {
-    if (j > 0 && j % 3 === 0) {
-      formatted = '.' + formatted;
-    }
-    formatted = body[i] + formatted;
-  }
-  
-  return formatted + '-' + dv;
+  return body + '-' + dv;
 }
 
 function initRutFormatter() {
@@ -705,7 +698,7 @@ if (registroForm) {
       orderNum: formattedOrder,
       nombres: toUpperText(nombresVal),
       apellidos: toUpperText(apellidosVal),
-      rut: rutVal,
+      rut: formatRut(rutVal),
       telefono: telefonoVal,
       empresa: toUpperText(empresaVal) || "PARTICULAR",
       time: timeStr,
@@ -1240,7 +1233,7 @@ function renderAdminQueue() {
     row.innerHTML = `
       <td class="font-bold text-center">#${guard.orderNum || '—'}</td>
       <td class="font-medium"${dupName ? ` style="${dupCellStyle}"` : ''}>${guard.nombres} ${guard.apellidos}${dupName ? dupBadge : ''}</td>
-      <td${dupRut ? ` style="${dupCellStyle}"` : ''}>${guard.rut}${dupRut && !dupName ? dupBadge : ''}</td>
+      <td${dupRut ? ` style="${dupCellStyle}"` : ''}>${formatRut(guard.rut)}${dupRut && !dupName ? dupBadge : ''}</td>
       <td class="text-muted">${guard.empresa}</td>
       <td>${guard.telefono || 'N/A'}</td>
       <td>${guard.time}</td>
@@ -1290,7 +1283,7 @@ function openEditGuardModal(guardId) {
   document.getElementById("edit-guard-id").value = guard.id;
   document.getElementById("edit-nombres").value = guard.nombres;
   document.getElementById("edit-apellidos").value = guard.apellidos;
-  document.getElementById("edit-rut").value = guard.rut;
+  document.getElementById("edit-rut").value = formatRut(guard.rut);
   document.getElementById("edit-telefono").value = guard.telefono || "";
   document.getElementById("edit-empresa").value = guard.empresa;
   document.getElementById("edit-status").value = guard.status;
@@ -1344,7 +1337,7 @@ if (editGuardForm) {
 
     guard.nombres = toUpperText(document.getElementById("edit-nombres").value);
     guard.apellidos = toUpperText(document.getElementById("edit-apellidos").value);
-    guard.rut = document.getElementById("edit-rut").value.trim();
+    guard.rut = formatRut(document.getElementById("edit-rut").value.trim());
     guard.telefono = document.getElementById("edit-telefono").value.trim();
     guard.empresa = toUpperText(document.getElementById("edit-empresa").value) || "PARTICULAR";
     
@@ -1455,7 +1448,7 @@ function renderAdminPcs() {
         const startStr = assignedGuard.examStartTimeStr
           || (assignedGuard.examStartTime ? new Date(assignedGuard.examStartTime).toTimeString().split(' ')[0] : null);
         const startLine = startStr ? `<br><small>Inicio: ${startStr}</small>` : '';
-        userP.innerHTML = `Rindiendo: <strong>${assignedGuard.nombres} ${assignedGuard.apellidos}</strong><br><small>Rut: ${assignedGuard.rut}</small>${startLine}`;
+        userP.innerHTML = `Rindiendo: <strong>${assignedGuard.nombres} ${assignedGuard.apellidos}</strong><br><small>Rut: ${formatRut(assignedGuard.rut)}</small>${startLine}`;
       } else if (userP) {
         userP.innerText = "Ocupado";
       }
@@ -1784,7 +1777,7 @@ function generateExcelBlob(guardsList, sheetName = "Reporte OS10") {
         <td${cellStyle}>#${g.orderNum || 'PENDIENTE'}</td>
         <td${cellStyle}>${toUpperText(g.nombres)}</td>
         <td${cellStyle}>${toUpperText(g.apellidos)}</td>
-        <td${cellStyle}>${g.rut}</td>
+        <td${cellStyle}>${formatRut(g.rut)}</td>
         <td${cellStyle}>${g.telefono || 'N/A'}</td>
         <td${cellStyle}>${toUpperText(g.empresa)}</td>
         <td${cellStyle}>${startStr}</td>
