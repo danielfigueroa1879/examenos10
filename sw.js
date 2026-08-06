@@ -1,9 +1,9 @@
-const CACHE_NAME = 'admin-os10-v14';
+const CACHE_NAME = 'admin-os10-v15';
 const ASSETS = [
   './pages/admin.html',
   './pages/modificar.html',
-  './assets/css/style.css?v=3.14',
-  './assets/js/app.js?v=3.14',
+  './assets/css/style.css?v=3.15',
+  './assets/js/app.js?v=3.15',
   './assets/images/logo-os10.webp',
   './assets/images/logo-os.webp',
   './favicon/favicon.ico',
