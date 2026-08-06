@@ -1703,9 +1703,11 @@ function generateExcelBlob(guardsList, sheetName = "Reporte OS10") {
     
     const startStr = g.examStartTimeStr || (g.examStartTime ? new Date(g.examStartTime).toTimeString().split(' ')[0] : 'N/A');
     const endStr = g.examEndTimeStr || g.examTime || 'N/A';
+    const fechaStr = getGuardDate(g) || 'N/A';
 
     tableRows += `
       <tr>
+        <td${cellStyle}>${fechaStr}</td>
         <td${cellStyle}>${g.time}</td>
         <td${cellStyle} style="font-weight:bold;">${index + 1}</td>
         <td${cellStyle}>#${g.orderNum || 'PENDIENTE'}</td>
@@ -1752,6 +1754,7 @@ function generateExcelBlob(guardsList, sheetName = "Reporte OS10") {
       <table>
         <thead>
           <tr>
+            <th${thStyle}>Fecha</th>
             <th${thStyle}>Hora Llegada</th>
             <th${thStyle}>N°</th>
             <th${thStyle}>N° Orden</th>
@@ -1780,9 +1783,15 @@ function generateExcelBlob(guardsList, sheetName = "Reporte OS10") {
   return new Blob([excelTemplate], { type: "application/vnd.ms-excel;charset=utf-8;" });
 }
 
-// ABRIR PÁGINA DE MODIFICACIÓN DEL DÍA (nueva pestaña)
+// ABRIR PÁGINA DE MODIFICACIÓN DEL DÍA (solo escritorio, requiere PIN)
 if (btnModificarDia) {
   btnModificarDia.addEventListener("click", () => {
+    const pin = prompt("Ingrese el PIN de administrador para acceder a Modificar:");
+    if (pin === null) return;
+    if (pin !== PIN_ADMIN) {
+      alert("PIN incorrecto. Acceso denegado.");
+      return;
+    }
     const datePicker = document.getElementById("admin-date-picker");
     const dateVal = (datePicker && datePicker.value) ? datePicker.value : selectedDate;
     window.location.href = `modificar.html?date=${encodeURIComponent(dateVal)}`;
@@ -1923,24 +1932,9 @@ if (btnResetQueue) {
     const confirmReset = confirm("¿Confirma reiniciar la fila del día?\n\n• Los guardias En Espera / En Examen serán borrados.\n• Los Finalizados se mantendrán visibles como historial del día.");
     if (!confirmReset) return;
 
-    // Preguntar sobre reinicio de numeración ANTES de mutar estado
-    let doCounterReset = false;
-    if (supabaseClient && selectedDate === getLocalDateString()) {
-      const finalizados = state.guards.filter(g => g.status === "Finalizado").length;
-      const aviso = finalizados > 0
-        ? `\n\n⚠️ ATENCIÓN: Esto BORRARÁ TAMBIÉN los ${finalizados} registro(s) Finalizado(s) del día (dejarán de estar visibles en la fila, aunque seguirán en la Base de Datos Consolidada histórica).`
-        : "";
-      doCounterReset = confirm(`¿Reiniciar también la numeración de tickets del día para que el próximo registro sea #001?${aviso}`);
-    }
-
-    // Comportamiento estándar: conservar Finalizados como historial.
-    // Si se reinicia numeración: vaciar TODO el día (los Finalizados quedan solo
-    // en state.allGuards / BD Consolidada).
-    if (doCounterReset) {
-      state.guards = [];
-    } else {
-      state.guards = state.guards.filter(g => g.status === "Finalizado");
-    }
+    // COMPORTAMIENTO SEGURO: SIEMPRE conservar los Finalizados como historial.
+    // Nunca se tocan sin acción explícita del admin (edición o eliminación individual).
+    state.guards = state.guards.filter(g => g.status === "Finalizado");
     state.computers = {
       1: { status: "Disponible", guardId: null },
       2: { status: "Disponible", guardId: null },
@@ -1949,18 +1943,24 @@ if (btnResetQueue) {
     };
     await saveState();
 
-    if (doCounterReset) {
-      try {
-        const { error } = await supabaseClient.rpc('reset_ticket_counter', { p_date: selectedDate });
-        if (error) {
-          console.error('Error en reset_ticket_counter RPC:', error);
-          alert("La numeración no pudo reiniciarse en el servidor. Revise la consola.");
-        } else {
-          alert("Numeración reiniciada. El próximo registro será #001.");
+    // Reset de numeración: SOLO se ofrece cuando el día está completamente vacío
+    // (sin Finalizados). Requiere que el admin escriba la palabra RESETEAR para
+    // confirmar — evita reset accidental con doble Enter.
+    if (supabaseClient && selectedDate === getLocalDateString() && state.guards.length === 0) {
+      const confirmWord = prompt("La fila del día está vacía.\n\n¿Reiniciar también la numeración de tickets para que el próximo registro sea #001?\n\nEscriba RESETEAR (en mayúsculas) para confirmar, o cancele para dejar la numeración como está.");
+      if (confirmWord && confirmWord.trim().toUpperCase() === "RESETEAR") {
+        try {
+          const { error } = await supabaseClient.rpc('reset_ticket_counter', { p_date: selectedDate });
+          if (error) {
+            console.error('Error en reset_ticket_counter RPC:', error);
+            alert("La numeración no pudo reiniciarse en el servidor. Revise la consola.");
+          } else {
+            alert("Numeración reiniciada. El próximo registro será #001.");
+          }
+        } catch (err) {
+          console.error('Error al llamar reset_ticket_counter:', err);
+          alert("Error al conectar con el servidor para reiniciar la numeración.");
         }
-      } catch (err) {
-        console.error('Error al llamar reset_ticket_counter:', err);
-        alert("Error al conectar con el servidor para reiniciar la numeración.");
       }
     }
 
