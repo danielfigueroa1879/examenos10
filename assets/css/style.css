@@ -793,6 +793,11 @@ body {
     min-width: 74px;
     letter-spacing: 1px;
   }
+
+  /* Botones/elementos que solo deben verse en escritorio */
+  .hide-on-mobile {
+    display: none !important;
+  }
 }
 
 /* En pantallas de escritorio damos un leve resplandor, pero suave */
