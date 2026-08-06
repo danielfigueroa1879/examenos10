@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="../assets/css/style.css?v=3.14">
+  <link rel="stylesheet" href="../assets/css/style.css?v=3.15">
 </head>
 <body>
 
@@ -214,7 +214,7 @@
     })();
   </script>
 
-  <script src="../assets/js/app.js?v=3.14"></script>
+  <script src="../assets/js/app.js?v=3.15"></script>
 
   <!-- Page-specific rendering for modificar view -->
   <script>
@@ -408,7 +408,7 @@
             <td class="mod-cell-num">${num}</td>
             <td${nameStyle}>${escapeHtml(guard.nombres)}</td>
             <td${apeStyle}>${escapeHtml(guard.apellidos)}${nameBadge}</td>
-            <td${rutStyle}>${escapeHtml(guard.rut)}${rutBadge}</td>
+            <td${rutStyle}>${escapeHtml(typeof formatRut === "function" ? formatRut(guard.rut) : guard.rut)}${rutBadge}</td>
             <td>${escapeHtml(guard.telefono || 'N/A')}</td>
             <td class="text-muted">${escapeHtml(guard.empresa)}</td>
             <td>${escapeHtml(guard.time)}</td>
@@ -463,7 +463,7 @@
               </div>
             </div>
             <div class="guard-card-body">
-              <div class="guard-info-row"><span class="lbl">RUT</span><span class="val"${rutCardStyle}>${escapeHtml(guard.rut)}</span></div>
+              <div class="guard-info-row"><span class="lbl">RUT</span><span class="val"${rutCardStyle}>${escapeHtml(typeof formatRut === "function" ? formatRut(guard.rut) : guard.rut)}</span></div>
               <div class="guard-info-row"><span class="lbl">Teléfono</span><span class="val">${escapeHtml(guard.telefono || 'N/A')}</span></div>
               <div class="guard-info-row"><span class="lbl">Empresa</span><span class="val">${escapeHtml(guard.empresa)}</span></div>
               <div class="guard-info-row"><span class="lbl">Ingreso</span><span class="val">${escapeHtml(guard.time)}</span></div>
