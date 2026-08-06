@@ -295,26 +295,87 @@ async function loadState() {
 }
 
 // SAVE TO LOCAL STORAGE & SUPABASE
+// Marca un guardia como eliminado en este dispositivo para que el merge
+// contra el estado remoto NO lo reviva. Debe llamarse antes de saveState().
+function markGuardDeleted(guardId) {
+  if (!guardId) return;
+  try {
+    const key = `os10_deleted_${selectedDate}`;
+    const prev = JSON.parse(localStorage.getItem(key) || '[]');
+    if (!prev.includes(guardId)) prev.push(guardId);
+    localStorage.setItem(key, JSON.stringify(prev));
+  } catch (_) {}
+}
+
 async function saveState() {
   localStorage.setItem(`os10_guards_${selectedDate}`, JSON.stringify(state.guards));
   localStorage.setItem(`os10_computers_${selectedDate}`, JSON.stringify(state.computers));
   localStorage.setItem("os10_all_guards", JSON.stringify(state.allGuards || []));
-  
-  if (supabaseClient) {
-    try {
-      const { error } = await supabaseClient
-        .from('os10_sync')
-        .upsert({ id: getSupabaseId(selectedDate), state: { guards: state.guards, computers: state.computers } });
-      if (error) console.log("Error al guardar en Supabase:", error);
 
-      // Guardar lista consolidada (id = 99999999)
-      const { error: errorAll } = await supabaseClient
-        .from('os10_sync')
-        .upsert({ id: 99999999, state: { allGuards: state.allGuards } });
-      if (errorAll) console.log("Error al guardar lista consolidada en Supabase:", errorAll);
-    } catch (err) {
-      console.log("Error al guardar en Supabase:", err);
+  if (!supabaseClient) return;
+
+  try {
+    const sid = getSupabaseId(selectedDate);
+
+    // 1) Leer lo que hay AHORA en el servidor para no pisarlo con datos viejos
+    const { data: remote } = await supabaseClient
+      .from('os10_sync')
+      .select('state')
+      .eq('id', sid)
+      .maybeSingle();
+
+    const remoteGuards = (remote && remote.state && remote.state.guards) || [];
+
+    // 2) Merge por id de guardia: gana el que tenga updatedAt mayor.
+    //    Si no hay updatedAt, gana el local (asumimos que acabas de editar).
+    const byId = new Map();
+    for (const g of remoteGuards) byId.set(g.id, g);
+    for (const g of state.guards) {
+      const prev = byId.get(g.id);
+      if (!prev) { byId.set(g.id, g); continue; }
+      const tPrev = Date.parse(prev.updatedAt || '') || 0;
+      const tNew  = Date.parse(g.updatedAt || '')    || Date.now();
+      byId.set(g.id, tNew >= tPrev ? g : prev);
     }
+
+    // 3) Respetar borrados explícitos (tombstones) de este dispositivo
+    const deleted = JSON.parse(localStorage.getItem(`os10_deleted_${selectedDate}`) || '[]');
+    for (const id of deleted) byId.delete(id);
+
+    const mergedGuards = Array.from(byId.values())
+      .sort((a, b) => (a.orderNum || 0) - (b.orderNum || 0));
+
+    // 4) Reflejar el resultado fusionado en memoria/local ANTES de subir
+    state.guards = mergedGuards;
+    localStorage.setItem(`os10_guards_${selectedDate}`, JSON.stringify(mergedGuards));
+
+    const { error } = await supabaseClient
+      .from('os10_sync')
+      .upsert({ id: sid, state: { guards: mergedGuards, computers: state.computers } });
+    if (error) console.log("Error al guardar en Supabase:", error);
+
+    // 5) Lista consolidada (id = 99999999) — también con merge por id
+    const { data: remoteAll } = await supabaseClient
+      .from('os10_sync')
+      .select('state')
+      .eq('id', 99999999)
+      .maybeSingle();
+    const remoteAllArr = (remoteAll && remoteAll.state && remoteAll.state.allGuards) || [];
+
+    const allById = new Map();
+    for (const g of remoteAllArr) allById.set(g.id, g);
+    for (const g of (state.allGuards || [])) {
+      allById.set(g.id, { ...(allById.get(g.id) || {}), ...g });
+    }
+    state.allGuards = Array.from(allById.values());
+    localStorage.setItem("os10_all_guards", JSON.stringify(state.allGuards));
+
+    const { error: errorAll } = await supabaseClient
+      .from('os10_sync')
+      .upsert({ id: 99999999, state: { allGuards: state.allGuards } });
+    if (errorAll) console.log("Error al guardar lista consolidada en Supabase:", errorAll);
+  } catch (err) {
+    console.log("Error al guardar en Supabase:", err);
   }
 }
 
@@ -1457,7 +1518,8 @@ async function deleteGuard(guardId) {
     }
 
     state.guards.splice(index, 1);
-    
+    markGuardDeleted(guardId);
+
     // Also remove from allGuards consolidated list if necessary
     const allIndex = state.allGuards.findIndex(g => g.id === guardId);
     if (allIndex !== -1) {
@@ -2053,6 +2115,9 @@ if (btnResetQueue) {
 
     // COMPORTAMIENTO SEGURO: SIEMPRE conservar los Finalizados como historial.
     // Nunca se tocan sin acción explícita del admin (edición o eliminación individual).
+    for (const g of state.guards) {
+      if (g.status !== "Finalizado") markGuardDeleted(g.id);
+    }
     state.guards = state.guards.filter(g => g.status === "Finalizado");
     state.computers = {
       1: { status: "Disponible", guardId: null },
