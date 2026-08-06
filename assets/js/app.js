@@ -21,11 +21,48 @@ async function verifyPinOnServer(rpcName, pin) {
   }
 }
 
+// SESIÓN DE CLAVE MAESTRA CON TIMEOUT POR INACTIVIDAD
+// Una vez validada correctamente, no se vuelve a pedir mientras el usuario
+// esté activo. Si transcurren MASTER_SESSION_IDLE_MS sin actividad (clic,
+// tecla, toque), la sesión expira y se pide de nuevo.
+const MASTER_SESSION_IDLE_MS = 9 * 60 * 1000; // 9 minutos
+let masterSessionAuthorized = false;
+let masterSessionLastActivity = 0;
+
+// Registra actividad del usuario para renovar la ventana de inactividad
+['click', 'keydown', 'touchstart'].forEach((ev) => {
+  document.addEventListener(ev, () => {
+    if (masterSessionAuthorized) masterSessionLastActivity = Date.now();
+  }, { passive: true });
+});
+
+function isMasterSessionValid() {
+  if (!masterSessionAuthorized) return false;
+  const idle = Date.now() - masterSessionLastActivity;
+  if (idle >= MASTER_SESSION_IDLE_MS) {
+    masterSessionAuthorized = false;
+    return false;
+  }
+  return true;
+}
+
+function invalidateMasterSession() {
+  masterSessionAuthorized = false;
+  masterSessionLastActivity = 0;
+}
+
 // Solicita la clave maestra al servidor para acciones destructivas o de modificación.
-// Devuelve true SOLO si el servidor confirma la clave. Cancelación o clave errónea → false.
+// Si la sesión de clave maestra sigue vigente (<9 min sin inactividad desde su última
+// validación), NO vuelve a preguntar y devuelve true directamente. Si expiró o no ha
+// sido validada, muestra el prompt como antes.
 async function requireMasterPin(actionLabel) {
+  if (isMasterSessionValid()) {
+    masterSessionLastActivity = Date.now();
+    return true;
+  }
+
   const label = actionLabel || "esta acción";
-  const pin = prompt(`🔒 Doble seguridad requerida\n\nPara ${label} debe ingresar la CLAVE MAESTRA:`);
+  const pin = prompt(`🔒 Doble seguridad requerida\n\nPara ${label} debe ingresar la CLAVE MAESTRA:\n\n(Válida por 9 minutos de actividad continua.)`);
   if (pin === null) return false;
 
   const result = await verifyPinOnServer('verify_master_pin', pin);
@@ -37,6 +74,10 @@ async function requireMasterPin(actionLabel) {
     alert("Clave maestra incorrecta. La acción fue cancelada.");
     return false;
   }
+
+  // Sesión maestra iniciada
+  masterSessionAuthorized = true;
+  masterSessionLastActivity = Date.now();
   return true;
 }
 
@@ -1033,6 +1074,7 @@ function initAdminAuth() {
     btnLogout.addEventListener("click", () => {
       state.isAdminAuthenticated = false;
       sessionStorage.removeItem("os10_admin_auth");
+      invalidateMasterSession();
       showAdminLoginForm();
     });
   }
